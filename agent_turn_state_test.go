@@ -1030,7 +1030,7 @@ func TestBuildAgentActionRequestPreservesNativeToolCallingWireShape(t *testing.T
 
 	request := BuildAgentActionRequest(state)
 
-	if request.StructuredOutputSchema.Name != "blueclaw_agent_turn_action" {
+	if request.StructuredOutputSchema.Name != "bluecollar_agent_turn_action" {
 		t.Fatalf("expected agent action schema name, got %q", request.StructuredOutputSchema.Name)
 	}
 	if !request.StructuredOutputSchema.IsStrictlyEnforced {

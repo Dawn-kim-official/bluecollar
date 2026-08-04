@@ -556,8 +556,8 @@ func TestSiteArtifactRequestAllowsContentDomainSkillsButGuidesPromptToTheActualT
 		IndexStatus:   "ready",
 	}}
 	languageModel := &schemaStructuredLanguageModel{contentBySchema: map[string]string{
-		"blueclaw_skill_search_queries":       `{"queries":[]}`,
-		"blueclaw_contract_skill_arbitration": `{"selectedSkillNames":["site-prototype","mail","calendar","browser"],"rejectedSkillNames":[],"requiredNextToolNames":[],"expectedEvidence":[],"unmetPreconditions":[],"reason":"Use the website workflow and the referenced capability descriptions as content."}`,
+		"bluecollar_skill_search_queries":       `{"queries":[]}`,
+		"bluecollar_contract_skill_arbitration": `{"selectedSkillNames":["site-prototype","mail","calendar","browser"],"rejectedSkillNames":[],"requiredNextToolNames":[],"expectedEvidence":[],"unmetPreconditions":[],"reason":"Use the website workflow and the referenced capability descriptions as content."}`,
 	}}
 	selectedBundle := selectInstructionBundleForRequestWithRetrieverAndRouter(
 		context.Background(),
@@ -804,8 +804,8 @@ func TestContractSkillArbitrationSelectsUsefulCandidateFromTopK(t *testing.T) {
 		IndexStatus:   "ready",
 	}}
 	languageModel := &schemaStructuredLanguageModel{contentBySchema: map[string]string{
-		"blueclaw_skill_search_queries":       `{"queries":[{"description":"Recover and attach the requested .docx enterprise guide file."}]}`,
-		"blueclaw_contract_skill_arbitration": `{"selectedSkillNames":["enterprise-document-maker"],"rejectedSkillNames":["public-web-builder"],"requiredNextToolNames":["file_write","terminal_run","file.promote","file_deliver"],"expectedEvidence":["file_deliver"],"unmetPreconditions":[],"reason":"The outcome contract requires a .docx attachment, not a public website."}`,
+		"bluecollar_skill_search_queries":       `{"queries":[{"description":"Recover and attach the requested .docx enterprise guide file."}]}`,
+		"bluecollar_contract_skill_arbitration": `{"selectedSkillNames":["enterprise-document-maker"],"rejectedSkillNames":["public-web-builder"],"requiredNextToolNames":["file_write","terminal_run","file.promote","file_deliver"],"expectedEvidence":["file_deliver"],"unmetPreconditions":[],"reason":"The outcome contract requires a .docx attachment, not a public website."}`,
 	}}
 
 	selectedBundle := selectInstructionBundleForRequestWithRetrieverAndRouter(context.Background(), instructionBundle, AgentRequest{
@@ -831,7 +831,7 @@ func TestContractSkillArbitrationSelectsUsefulCandidateFromTopK(t *testing.T) {
 		}},
 	}, retriever, NewSkillSearchQueryRouter(languageModel))
 
-	if !structuredRequestHasSchema(languageModel.requests, "blueclaw_contract_skill_arbitration") {
+	if !structuredRequestHasSchema(languageModel.requests, "bluecollar_contract_skill_arbitration") {
 		t.Fatalf("expected contract arbitration request, got %+v", structuredRequestSchemaNames(languageModel.requests))
 	}
 	if !skillDecisionHasReason(selectedBundle.SkillDecisions, "enterprise-document-maker", "contract_arbitration") {
@@ -859,8 +859,8 @@ func TestContractSkillArbitrationDoesNotRunWithoutOutcomeContract(t *testing.T) 
 		}},
 	}
 	languageModel := &schemaStructuredLanguageModel{contentBySchema: map[string]string{
-		"blueclaw_skill_search_queries":       `{"queries":[{"description":"Read recent email."}]}`,
-		"blueclaw_contract_skill_arbitration": `{"selectedSkillNames":[],"rejectedSkillNames":["mail"],"requiredNextToolNames":[],"expectedEvidence":[],"unmetPreconditions":[],"reason":"should not be called"}`,
+		"bluecollar_skill_search_queries":       `{"queries":[{"description":"Read recent email."}]}`,
+		"bluecollar_contract_skill_arbitration": `{"selectedSkillNames":[],"rejectedSkillNames":["mail"],"requiredNextToolNames":[],"expectedEvidence":[],"unmetPreconditions":[],"reason":"should not be called"}`,
 	}}
 
 	_ = selectInstructionBundleForRequestWithRetrieverAndRouter(context.Background(), instructionBundle, AgentRequest{
@@ -868,7 +868,7 @@ func TestContractSkillArbitrationDoesNotRunWithoutOutcomeContract(t *testing.T) 
 		ToolSet: testToolSet([]string{"mail_message_search"}),
 	}, NewEmbeddingSkillRetriever(nil, ""), NewSkillSearchQueryRouter(languageModel))
 
-	if structuredRequestHasSchema(languageModel.requests, "blueclaw_contract_skill_arbitration") {
+	if structuredRequestHasSchema(languageModel.requests, "bluecollar_contract_skill_arbitration") {
 		t.Fatalf("expected no contract arbitration without an outcome contract, got %+v", structuredRequestSchemaNames(languageModel.requests))
 	}
 }
@@ -998,8 +998,8 @@ func TestContractSkillArbitrationFailureDegradesToScoreSelection(t *testing.T) {
 		}},
 	}
 	languageModel := &schemaStructuredLanguageModel{contentBySchema: map[string]string{
-		"blueclaw_skill_search_queries":       `{"queries":[{"description":"Create a company task."}]}`,
-		"blueclaw_contract_skill_arbitration": `{}`,
+		"bluecollar_skill_search_queries":       `{"queries":[{"description":"Create a company task."}]}`,
+		"bluecollar_contract_skill_arbitration": `{}`,
 	}}
 	toolSet := testToolSet([]string{toolcontract.TerminalRunToolName, "task_add", "task_list"})
 	outcomeContract := OutcomeContract{RequiredEvidenceTools: []string{"task_add"}}

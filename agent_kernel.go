@@ -14,7 +14,6 @@ import (
 )
 
 type AgentKernel struct {
-	planCompiler            PlanCompiler
 	taskRunService          taskstate.TaskRunStore
 	taskStepService         taskstate.TaskStepStore
 	taskArtifactService     taskstate.TaskArtifactStore
@@ -37,7 +36,6 @@ type AgentKernel struct {
 
 func NewAgentKernel(taskRunService taskstate.TaskRunStore, taskStepService taskstate.TaskStepStore) *AgentKernel {
 	return &AgentKernel{
-		planCompiler:        PlanCompiler{},
 		taskRunService:      taskRunService,
 		taskStepService:     taskStepService,
 		taskArtifactService: taskstate.NewTaskArtifactService(),
@@ -595,30 +593,6 @@ func (agentKernel *AgentKernel) pauseForClarification(responseContext context.Co
 		"responseLanguage": request.ResponseLanguage,
 	}))
 	return AgentTurnResult{TaskRun: waitingTaskRun, UserNotice: reply, ToolNames: toolNamesForEvent(request.ToolSet)}, nil
-}
-
-func (agentKernel *AgentKernel) RunTask(requesterPersonID string, originConversationID string, prompt string) (taskstate.TaskRun, error) {
-	return agentKernel.RunTaskWithOrigin(requesterPersonID, taskstate.TaskRunOrigin{ConversationID: originConversationID}, prompt)
-}
-
-func (agentKernel *AgentKernel) RunTaskWithOrigin(requesterPersonID string, origin taskstate.TaskRunOrigin, prompt string) (taskstate.TaskRun, error) {
-	taskRun := agentKernel.taskRunService.CreateTaskRunWithOrigin(requesterPersonID, origin, prompt)
-	taskPlan, errorValue := agentKernel.planCompiler.CompilePlan(prompt)
-	if errorValue != nil {
-		return taskstate.TaskRun{}, errorValue
-	}
-
-	for _, taskPlanStep := range taskPlan.TaskSteps {
-		agentKernel.taskStepService.AddTaskStep(taskstate.TaskStep{
-			TaskStepID:               taskRun.TaskRunID + ":" + taskPlanStep.Name,
-			TaskRunID:                taskRun.TaskRunID,
-			AssignedAgentProfileName: taskPlanStep.AssignedAgentProfileName,
-			Instruction:              taskPlanStep.Instruction,
-			Status:                   taskstate.TaskStatusPlanned,
-		})
-	}
-
-	return agentKernel.taskRunService.AdvanceTaskRun(taskRun.TaskRunID, "planner")
 }
 
 func (agentKernel *AgentKernel) ResumeTask(taskRunID string) (taskstate.TaskRun, error) {

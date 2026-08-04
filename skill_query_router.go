@@ -23,7 +23,7 @@ func (skillSearchQueryRouter SkillSearchQueryRouter) Build(ctx context.Context, 
 	structuredResponse, errorValue := skillSearchQueryRouter.languageModel.GenerateStructuredResponse(ctx, model.StructuredResponseRequest{
 		Messages: skillSearchQueryRouter.buildMessages(request),
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_skill_search_queries",
+			Name:               "bluecollar_skill_search_queries",
 			Document:           `{"type":"object","properties":{"queries":{"type":"array","minItems":0,"maxItems":5,"items":{"type":"object","properties":{"description":{"type":"string"}},"required":["description"],"additionalProperties":false}}},"required":["queries"],"additionalProperties":false}`,
 			IsStrictlyEnforced: true,
 		},

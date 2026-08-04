@@ -24,7 +24,7 @@ func TestTaskContextCompactionTriggersOnlyOverBudget(t *testing.T) {
 	if len(languageModel.requests) != 2 {
 		t.Fatalf("expected summary and action requests, got %d", len(languageModel.requests))
 	}
-	if languageModel.requests[0].StructuredOutputSchema.Name != "blueclaw_task_context_summary" {
+	if languageModel.requests[0].StructuredOutputSchema.Name != "bluecollar_task_context_summary" {
 		t.Fatalf("expected first request to compact context, got %s", languageModel.requests[0].StructuredOutputSchema.Name)
 	}
 
@@ -39,7 +39,7 @@ func TestTaskContextCompactionTriggersOnlyOverBudget(t *testing.T) {
 	if len(underBudgetModel.requests) != 1 {
 		t.Fatalf("expected only action request under budget, got %d", len(underBudgetModel.requests))
 	}
-	if underBudgetModel.requests[0].StructuredOutputSchema.Name == "blueclaw_task_context_summary" {
+	if underBudgetModel.requests[0].StructuredOutputSchema.Name == "bluecollar_task_context_summary" {
 		t.Fatal("did not expect summary request under budget")
 	}
 }
@@ -149,7 +149,7 @@ func (languageModel *truncatingSummaryLanguageModel) GenerateResponse(context.Co
 
 func (languageModel *truncatingSummaryLanguageModel) GenerateStructuredResponse(_ context.Context, request model.StructuredResponseRequest) (model.StructuredResponse, error) {
 	languageModel.requests = append(languageModel.requests, request)
-	if request.StructuredOutputSchema.Name == "blueclaw_task_context_summary" {
+	if request.StructuredOutputSchema.Name == "bluecollar_task_context_summary" {
 		return model.StructuredResponse{}, errors.New("structured output truncated: finish reason length")
 	}
 	return model.StructuredResponse{Content: finishMessageDocument("done")}, nil

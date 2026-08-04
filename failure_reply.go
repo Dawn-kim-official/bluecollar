@@ -71,7 +71,7 @@ func (agentTurnRunner *AgentTurnRunner) generateRecoveryDecision(recoveryContext
 	structuredResponse, errorValue := agentTurnRunner.recoveryLanguageModel.GenerateStructuredResponse(recoveryContext, model.StructuredResponseRequest{
 		Messages: messages,
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_recovery_decision",
+			Name:               "bluecollar_recovery_decision",
 			Document:           recoveryDecisionSchema(),
 			IsStrictlyEnforced: true,
 		},
@@ -203,7 +203,7 @@ func (agentTurnRunner *AgentTurnRunner) prepareFinishMessageForPlatform(ctx cont
 }
 
 func (agentTurnRunner *AgentTurnRunner) generateFinishMessageCompressionText(recoveryContext context.Context, prompt string) (string, error) {
-	if reply, errorValue, isSupported := generateRecoveryChatText(recoveryContext, agentTurnRunner.recoveryLanguageModel, "blueclaw_reply_compression", prompt); isSupported {
+	if reply, errorValue, isSupported := generateRecoveryChatText(recoveryContext, agentTurnRunner.recoveryLanguageModel, "bluecollar_reply_compression", prompt); isSupported {
 		if errorValue == nil && reply != "" {
 			return reply, nil
 		}

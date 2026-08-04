@@ -12,7 +12,7 @@ import (
 	"github.com/Dawn-kim-official/bluecollar/taskstate"
 )
 
-const elapsedReplySchemaName = "blueclaw_elapsed_reply"
+const elapsedReplySchemaName = "bluecollar_elapsed_reply"
 
 func newTimePressureRunner() *AgentTurnRunner {
 	return &AgentTurnRunner{

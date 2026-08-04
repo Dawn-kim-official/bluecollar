@@ -19,7 +19,7 @@ func TestObserveLanguageModelRecordsStructuredCalls(t *testing.T) {
 
 	_, errorValue := observed.GenerateStructuredResponse(context.Background(), model.StructuredResponseRequest{
 		Messages:               []model.Message{{Role: "user", Content: "hello"}},
-		StructuredOutputSchema: model.StructuredOutputSchema{Name: "blueclaw_agent_turn_action"},
+		StructuredOutputSchema: model.StructuredOutputSchema{Name: "bluecollar_agent_turn_action"},
 	})
 	if errorValue != nil {
 		t.Fatalf("expected structured call: %v", errorValue)
@@ -27,7 +27,7 @@ func TestObserveLanguageModelRecordsStructuredCalls(t *testing.T) {
 	if len(records) != 1 {
 		t.Fatalf("expected one call record, got %d", len(records))
 	}
-	if records[0].Kind != "structured" || records[0].SchemaName != "blueclaw_agent_turn_action" {
+	if records[0].Kind != "structured" || records[0].SchemaName != "bluecollar_agent_turn_action" {
 		t.Fatalf("expected structured record with schema, got %+v", records[0])
 	}
 	if records[0].PromptBytes != len("hello") || records[0].ContentBytes == 0 {
@@ -132,7 +132,7 @@ func TestObserveLanguageModelRecordsExplicitChatSchemaOnly(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("expected action and plain chat records, got %+v", records)
 	}
-	if records[0].SchemaName != "blueclaw_agent_turn_action" || records[1].SchemaName != "" {
+	if records[0].SchemaName != "bluecollar_agent_turn_action" || records[1].SchemaName != "" {
 		t.Fatalf("expected only explicitly identified action chat to carry schema, got %+v", records)
 	}
 }
@@ -142,9 +142,9 @@ func nativeActionChatRequest() model.ChatCompletionRequest {
 		SchemaName: AgentActionSchemaName,
 		Tools: []model.ChatCompletionTool{{
 			Type:     "function",
-			Function: model.ChatCompletionFunction{Name: "blueclaw_agent_turn_action"},
+			Function: model.ChatCompletionFunction{Name: "bluecollar_agent_turn_action"},
 		}},
-		ToolChoice: json.RawMessage(`{"type":"function","function":{"name":"blueclaw_agent_turn_action"}}`),
+		ToolChoice: json.RawMessage(`{"type":"function","function":{"name":"bluecollar_agent_turn_action"}}`),
 	}
 }
 
@@ -157,7 +157,7 @@ func TestChatCallRecordPreservesActionRoutingMetadata(t *testing.T) {
 		FinishReason:    "tool_calls",
 		UsedFallback:    true,
 	}, time.Now(), nil)
-	if record.SchemaName != "blueclaw_agent_turn_action" || record.Provider != "llmd" || record.Model != "low-model" || record.ModelTier != "low" || record.SelectedBackend != "device" || record.FinishReason != "tool_calls" || !record.UsedFallback {
+	if record.SchemaName != "bluecollar_agent_turn_action" || record.Provider != "llmd" || record.Model != "low-model" || record.ModelTier != "low" || record.SelectedBackend != "device" || record.FinishReason != "tool_calls" || !record.UsedFallback {
 		t.Fatalf("expected action routing metadata, got %+v", record)
 	}
 }

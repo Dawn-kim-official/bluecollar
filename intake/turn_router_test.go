@@ -360,7 +360,7 @@ func TestTaskIntakePlannerUsesStructuredModelDecision(t *testing.T) {
 	if len(languageModel.requests) != 1 {
 		t.Fatalf("expected one intake model call, got %d", len(languageModel.requests))
 	}
-	if languageModel.requests[0].StructuredOutputSchema.Name != "blueclaw_turn_router" {
+	if languageModel.requests[0].StructuredOutputSchema.Name != "bluecollar_turn_router" {
 		t.Fatalf("expected turn router schema, got %q", languageModel.requests[0].StructuredOutputSchema.Name)
 	}
 	if languageModel.requests[0].GenerationOptions.MaxTokens == nil || *languageModel.requests[0].GenerationOptions.MaxTokens != turnRouterMaxTokens {
