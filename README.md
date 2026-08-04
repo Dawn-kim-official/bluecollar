@@ -1,3 +1,5 @@
+<img src="assets/bluecollar.logo.svg" alt="bluecollar" width="112">
+
 # bluecollar
 
 An agent harness: the loop that takes a request, decides what to do, calls tools, and answers.
