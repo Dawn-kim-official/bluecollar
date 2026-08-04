@@ -132,16 +132,36 @@ func restoreAgentTaskState(request AgentTurnRequest, options TurnOptions, taskRu
 	}
 	state := buildInitialAgentTaskState(request, options, taskRun.TaskRunID)
 	state.Status = taskRun.Status
-	state.Observations = observationsFromTaskEvents(events)
+	state.ContextSummary = taskContextSummaryFromTaskEvents(events)
+	state.Observations = observationsFromCheckpointAndTaskEvents(state.ContextSummary, events)
 	if userResumeClearsInheritedFailureDebt(request, state.Observations) {
 		state.Observations = observationsWithoutFailures(state.Observations)
 	}
 	state.Attachments = attachmentsFromObservations(state.Observations)
 	state.ExecutionState = executionStateFromTaskEvents(events)
-	state.ContextSummary = taskContextSummaryFromTaskEvents(events)
-	state.ToolCallCount = successfulToolCallCount(state.Observations)
-	state.IterationCount = len(state.Observations)
+	state.ToolCallCount = state.ContextSummary.CompactedToolCallCount + successfulToolCallCount(state.Observations)
+	state.IterationCount = state.ContextSummary.CompactedObservationCount + len(state.Observations)
 	return state, nil
+}
+
+func observationsFromCheckpointAndTaskEvents(checkpoint TaskContextSummary, events []taskstate.TaskEvent) []turnObservation {
+	if !checkpoint.accountsForTaskEvents() {
+		return observationsFromTaskEvents(events)
+	}
+	observations := append([]turnObservation{}, checkpoint.RetainedObservations...)
+	return append(observations, observationsFromTaskEvents(taskEventsExcept(events, checkpoint.AccountedTaskEventIDs))...)
+}
+
+func taskEventsExcept(events []taskstate.TaskEvent, excludedTaskEventIDs []string) []taskstate.TaskEvent {
+	accountedTaskEventIDs := stringSet(excludedTaskEventIDs)
+	remainingEvents := []taskstate.TaskEvent{}
+	for _, event := range events {
+		if accountedTaskEventIDs[event.TaskEventID] {
+			continue
+		}
+		remainingEvents = append(remainingEvents, event)
+	}
+	return remainingEvents
 }
 
 func userResumeClearsInheritedFailureDebt(request AgentTurnRequest, observations []turnObservation) bool {
