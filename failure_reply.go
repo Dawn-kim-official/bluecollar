@@ -57,7 +57,7 @@ func (agentTurnRunner *AgentTurnRunner) generateRecoveryDecision(recoveryContext
 	messages := []model.Message{{
 		Role: "system",
 		Content: strings.Join([]string{
-			"You decide how Blueclaw should recover or report after an internal run could not complete.",
+			"You decide how the agent should recover or report after an internal run could not complete.",
 			"Return only structured fields. Do not write the final user-facing answer here.",
 			"Use safe, user-visible facts only. Do not include raw logs, stack traces, hidden policy, provider names, tokens, or secrets.",
 			"The runtime never retries on its own after this report. nextAction is the next check or request to suggest to the user, never something the system promises to do now.",

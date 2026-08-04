@@ -468,7 +468,7 @@ func BuildFailureNoticeRepairPrompt(report FailureReport, rejectedReply string, 
 
 func BuildFailureNoticeCompressionPrompt(report FailureReport, reply string, maximumCharacters int) string {
 	return strings.Join([]string{
-		"You are compressing a user-facing failure notice for Mattermost.",
+		"You are compressing a user-facing failure notice for a chat message.",
 		ResponseLanguageInstruction(report.ResponseLanguage),
 		"Keep the same meaning and omit internal diagnostics.",
 		"Write one or two natural sentences.",
@@ -480,7 +480,7 @@ func BuildFailureNoticeCompressionPrompt(report FailureReport, reply string, max
 
 func BuildFinishMessageCompressionPrompt(reply string, responseLanguage string, maximumCharacters int) string {
 	return strings.Join([]string{
-		"You are compressing a successful user-facing reply for Mattermost.",
+		"You are compressing a successful user-facing reply for a chat message.",
 		ResponseLanguageInstruction(responseLanguage),
 		"Keep the concrete result, attachment filenames, and next useful action if present.",
 		"Do not add claims that were not in the original reply.",

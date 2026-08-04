@@ -28,7 +28,7 @@ func BuildMemoryContext(memoryFacts []MemoryFact) string {
 	if len(sections) == 0 {
 		return ""
 	}
-	return "Relevant Blueclaw memory (policy-filtered compact summaries):\n" + strings.Join(sections, "\n\n")
+	return "Relevant memory (policy-filtered compact summaries):\n" + strings.Join(sections, "\n\n")
 }
 
 func buildScopedMemoryDescriptions(memoryFacts []MemoryFact, scopeType string) []string {

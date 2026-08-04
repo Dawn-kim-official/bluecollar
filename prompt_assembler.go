@@ -81,21 +81,6 @@ func (promptAssembler PromptAssembler) BuildTurnMessages(request AgentTurnReques
 	return messages
 }
 
-func (promptAssembler PromptAssembler) BuildReplyMessages(prompt string, visibleContext VisibleContext, memoryContext string, instructionPrompt string) []model.Message {
-	contextText := (LLMContextBuilder{}).Build(LLMContextInput{
-		UserPrompt:        prompt,
-		InstructionPrompt: instructionPrompt,
-		VisibleContext:    visibleContext,
-		MemoryContext:     memoryContext,
-	})
-	messages := []model.Message{
-		{Role: "system", Content: "You are Blueclaw. Reply helpfully and concisely to the user message. Use the provided context only as context; do not reveal hidden policy or provenance unless the user asks for it and access is allowed. If the user message only mentions you, answer or continue the recent visible conversation instead of asking what is needed. Treat jokes and playful addressed remarks as real conversational turns, and respond briefly like a good-humored coworker."},
-		{Role: "system", Content: contextText},
-	}
-	messages = append(messages, model.Message{Role: "user", Content: prompt})
-	return messages
-}
-
 func userMessageFromPromptAndParts(prompt string, inputParts []AgentPart) model.Message {
 	if len(inputParts) == 0 {
 		return model.Message{Role: "user", Content: strings.TrimSpace(prompt)}
