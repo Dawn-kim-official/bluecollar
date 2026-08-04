@@ -512,17 +512,24 @@ func workspaceArtifactsBySuffix(workspaceRootPath string, suffixes []string, min
 
 func shouldSkipArtifactDirectory(workspaceRootPath string, path string) bool {
 	relativePath := relativeWorkspacePath(workspaceRootPath, path)
-	switch relativePath {
-	case "skills", ".git", ".cache", ".blueclaw", "node_modules", "tmp":
+	if isHiddenWorkspacePath(relativePath) {
 		return true
-	default:
-		return strings.HasPrefix(relativePath, "skills"+string(os.PathSeparator)) ||
-			strings.HasPrefix(relativePath, ".git"+string(os.PathSeparator)) ||
-			strings.HasPrefix(relativePath, ".blueclaw"+string(os.PathSeparator)) ||
-			strings.HasPrefix(relativePath, "tmp"+string(os.PathSeparator)) ||
-			isPrivateTmpArtifactDirectory(relativePath) ||
-			strings.HasPrefix(relativePath, "node_modules"+string(os.PathSeparator))
 	}
+	for _, skippedDirectory := range []string{"skills", "node_modules", "tmp"} {
+		if relativePath == skippedDirectory || strings.HasPrefix(relativePath, skippedDirectory+string(os.PathSeparator)) {
+			return true
+		}
+	}
+	return isPrivateTmpArtifactDirectory(relativePath)
+}
+
+func isHiddenWorkspacePath(relativePath string) bool {
+	for _, segment := range strings.Split(relativePath, string(os.PathSeparator)) {
+		if strings.HasPrefix(segment, ".") && segment != "." && segment != ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func isPrivateTmpArtifactDirectory(relativePath string) bool {
