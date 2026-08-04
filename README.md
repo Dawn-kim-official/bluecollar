@@ -6,39 +6,54 @@ bluecollar does not own tools, identity, or storage. It is handed a tool set and
 host and runs the turn. That separation is the point — the same loop runs behind a chat connector on
 a server, or in front of you in a terminal.
 
+It is built for work nobody is watching. A request arrives from someone else, the person who sent it
+goes back to their day, and the answer has to be right without anyone checking. That assumption is
+why the loop carries things an interactive coding agent has no use for: an outcome contract agreed
+before the work starts, a completion gate that will not accept the model's own word that it is done,
+approval as a state a task can sit in for days and resume from, a tier ladder that picks the model
+from the difficulty rather than from a flag, and failure text written for the person who asked
+rather than for a log.
+
+The trade is real and worth stating plainly: it is heavier than an interactive loop, and for sitting
+beside a developer and fixing code as they watch, a coding agent is the better tool.
+
 ## The shape
 
 ```
 host  ──── agentcontract.Harness ────  bluecollar
   │                                        │
   │ owns: tools, identity, task store,     │ owns: the turn loop, routing,
-  │       approvals, POSIX isolation       │       skills, completion judgment
+  │       approvals, process isolation     │       skills, completion judgment
   │                                        │
   └──────── executes every tool call ──────┘
 ```
 
 The host and the harness compile against one shared contract package,
-[`agentcontract`](./agentcontract).
-The host names only that interface, never this package. A different harness — an AI SDK adapter, an
-external agent — drops into the same socket.
+[`agentcontract`](./agentcontract). A different harness — an AI SDK adapter, an external agent —
+drops into the same socket.
 
-The nine verbs the host may call:
+The port is one method:
 
-| Verb | Purpose |
-|---|---|
-| `RunTurn` | Run one turn of an existing task |
-| `RouteTurn` | Decide what an inbound message means before running anything |
-| `RunAgentRequest` | Route and run in one call |
-| `CompleteLaunchFailure` | Turn a launch failure into an explanation for the person |
-| `GenerateReply` | One-shot reply, no task |
-| `GenerateReplyWithContext` | One-shot reply with visible context and memory |
-| `ClassifyAddressing` | Decide whether a message in a channel is for us |
-| `ClassifyActiveTaskFollowUp` | Decide whether a message continues a running task |
-| `RefreshSkillIndex` | Re-read the skill bundle |
+```go
+type Harness interface {
+	RunTurn(context.Context, AgentTurnRequest) (AgentTurnResult, error)
+}
+```
+
+It used to be nine. Routing, addressing, follow-up classification and one-shot replies were verbs on
+the port until it became clear they are host policy, not harness behaviour: a host that answers
+its own messenger decides what an inbound message *means* before anything runs a turn. Those
+still live here — [`intake.Classifier`](./intake) routes and classifies, `AgentKernel` carries
+`RunAgentRequest` and `CompleteLaunchFailure` — but a host is free to bring its own, and a harness
+that implements only `RunTurn` is complete.
 
 Tool execution never happens here. The harness decides *what* to call; the host decides *who* it runs
 as. A harness that runs its own tools defeats the host's isolation boundary and is not a valid
 implementation of this contract.
+
+The harness has no identity of its own. The host supplies `AgentIdentity`, the workspace layout, the
+instruction bundle and the company context; with none given, the agent is "the assistant" and knows
+nothing about where it runs.
 
 ## Provider-agnostic
 
@@ -46,16 +61,31 @@ Models reach bluecollar through a provider port, not a vendor SDK. Anything sati
 the provider can change **between steps of a running turn** — the tier ladder relies on that, escalating
 a task from a cheap model to a strong one without restarting it.
 
-The reference provider is an [AI SDK](https://ai-sdk.dev) sidecar, which is what makes "any model"
-literal rather than aspirational.
+There is no provider implementation in this module — the port is the contract, and the host brings
+the provider. The reference one, in [blueclaw](https://github.com/Dawn-kim-official/blueclaw), is an
+[AI SDK](https://ai-sdk.dev) sidecar, which is what makes "any model" literal rather than
+aspirational.
 
 ## What is not here yet
 
 Honest list, kept current:
 
-- The terminal CLI. Planned on [termcn](https://github.com/shadcn-labs/termcn).
+- A terminal front end of its own. Planned on [termcn](https://github.com/shadcn-labs/termcn); today
+  the only way to drive the loop is to embed it in a host.
 - Native multi-step tool calling. The loop currently forces one structured action per step, which
   costs a turn per tool call and blocks parallel calls. Migration is planned and staged.
+
+## Building and testing
+
+The module depends on one library and nothing outside its own directory.
+
+```
+go build ./...
+go test ./...
+```
+
+Every check that runs in CI is in [`.github/workflows/check.yml`](./.github/workflows/check.yml):
+`gofmt`, `go vet`, `go build`, `go test`. No network, no credentials, no database.
 
 ## License
 

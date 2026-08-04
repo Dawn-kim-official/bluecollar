@@ -8,18 +8,18 @@ import (
 func TestCompanyContextRendersIdentityAndSelfUpdateRule(t *testing.T) {
 	contextText := (LLMContextBuilder{}).Build(LLMContextInput{
 		Company: CompanyContext{
-			Name:           "주식회사 여명거리",
-			BrandName:      "김인턴",
-			Slogan:         "AI 인턴을 모든 회사에",
-			Description:    "AI 인턴 서비스를 만드는 스타트업",
-			Representative: "김여명",
-			Website:        "https://example.test",
+			Name:           "주식회사 예시상사",
+			BrandName:      "예시인턴",
+			Slogan:         "모두에게 예시 인턴을",
+			Description:    "예시 서비스를 만드는 테스트 회사",
+			Representative: "최예제",
+			Website:        "https://example.com",
 		},
 	})
 	for _, expected := range []string{
 		"Our company:",
-		"주식회사 여명거리 (brand: 김인턴) — AI 인턴을 모든 회사에",
-		"represented by 김여명",
+		"주식회사 예시상사 (brand: 예시인턴) — 모두에게 예시 인턴을",
+		"represented by 최예제",
 		"company_info_get",
 		"company_metric_record",
 	} {
@@ -41,9 +41,9 @@ func TestCompanyContextEmptyStateAdvertisesSchemaAndProactiveAsk(t *testing.T) {
 func TestAgentKernelCompanyProviderFeedsTurnRequest(t *testing.T) {
 	agentKernel := &AgentKernel{}
 	agentKernel.UseCompanyProvider(func() CompanyContext {
-		return CompanyContext{Name: "주식회사 여명거리"}
+		return CompanyContext{Name: "주식회사 예시상사"}
 	})
-	if agentKernel.companyContext().Name != "주식회사 여명거리" {
+	if agentKernel.companyContext().Name != "주식회사 예시상사" {
 		t.Fatal("company provider not applied")
 	}
 	agentKernel = &AgentKernel{}
