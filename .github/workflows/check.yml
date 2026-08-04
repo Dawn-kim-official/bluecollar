@@ -1,9 +1,9 @@
 name: check
 
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['**.md', 'docs/**', 'assets/**', 'LICENSE']
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
   pull_request:
     paths-ignore: ['**.md', 'docs/**', 'assets/**', 'LICENSE']
 
