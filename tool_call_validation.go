@@ -369,7 +369,7 @@ type terminalToolNameError struct {
 }
 
 func (errorValue terminalToolNameError) Error() string {
-	return errorValue.toolName + " is a Blueclaw tool, not a shell command. Call it directly through the action schema."
+	return errorValue.toolName + " is an agent tool, not a shell command. Call it directly through the action schema."
 }
 
 func isTerminalToolNameError(errorValue error) bool {
@@ -398,7 +398,7 @@ func validateTerminalToolInput(toolName string, toolInput json.RawMessage, toolS
 	}
 	for _, toolAlias := range []string{toolcontract.FileDeliverToolName, "set_quality_criteria", "finish"} {
 		if strings.Contains(command, toolAlias) {
-			return errors.New(strings.TrimSpace(toolName) + " command cannot call Blueclaw action " + toolAlias + "; call that action directly instead")
+			return errors.New(strings.TrimSpace(toolName) + " command cannot call agent action " + toolAlias + "; call that action directly instead")
 		}
 	}
 	return nil

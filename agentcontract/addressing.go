@@ -20,6 +20,7 @@ type AddressingClassificationRequest struct {
 	SenderName       string
 	SenderHandle     string
 	VisibleContext   VisibleContext
+	AgentIdentity    AgentIdentity
 }
 
 type AddressingDecision struct {

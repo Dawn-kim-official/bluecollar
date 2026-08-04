@@ -129,6 +129,7 @@ type AgentTurnRequest struct {
 	WorkspaceRootPath            string
 	WorkspaceDefaultPath         string
 	WorkspaceGuidance            []string
+	AgentIdentity                AgentIdentity
 	ActivePaths                  []string
 	InstructionPrompt            string
 	InstructionSources           []InstructionSource

@@ -18,9 +18,9 @@ func TestSystemInstructionAddsApprovalContinuationDirective(t *testing.T) {
 }
 
 func TestSystemInstructionGuidesBareMentionAndPlayfulReplies(t *testing.T) {
-	instruction := buildAgentSystemInstruction(AgentTurnRequest{})
+	instruction := buildAgentSystemInstruction(AgentTurnRequest{AgentIdentity: AgentIdentity{Name: "Ada", Handle: "ada"}})
 
-	for _, expected := range []string{"only mentions you", "@김인턴", "recent visible conversation context", "Do not silently ignore", "good-humored coworker"} {
+	for _, expected := range []string{"only mentions you", "@ada", "recent visible conversation context", "Do not silently ignore", "good-humored coworker"} {
 		if !strings.Contains(instruction, expected) {
 			t.Fatalf("expected system instruction to contain %q, got %s", expected, instruction)
 		}

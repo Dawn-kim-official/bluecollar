@@ -8,6 +8,7 @@ import (
 var _ agentcontract.Harness = (*AgentKernel)(nil)
 
 type (
+	AgentIdentity                           = agentcontract.AgentIdentity
 	ActiveGoal                              = agentcontract.ActiveGoal
 	ActiveGoalStatus                        = agentcontract.ActiveGoalStatus
 	ActiveTaskContext                       = agentcontract.ActiveTaskContext

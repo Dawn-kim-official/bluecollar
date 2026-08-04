@@ -331,7 +331,7 @@ func (agentTurnRunner *AgentTurnRunner) generateHeldCallConfirmationWording(ctx 
 	structuredResponse, errorValue := agentTurnRunner.languageModel.GenerateStructuredResponse(ctx, model.StructuredResponseRequest{
 		Messages: []model.Message{
 			{Role: "system", Content: strings.Join([]string{
-				"Write exactly one concise user-facing approval question for Blueclaw.",
+				"Write exactly one concise user-facing approval question.",
 				"The question asks whether to perform the pending action.",
 				"Use the original request, model draft, and action details to phrase the target, content, file, event, or site naturally.",
 				"Include consequential details when present so the user can approve a concrete action.",

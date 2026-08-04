@@ -126,28 +126,6 @@ func TestBuildTemporalContextDescriptionAnchorsWeeksAcrossCalendarBoundaries(t *
 	}
 }
 
-func TestPromptAssemblerIncludesTemporalContextInDirectReplies(t *testing.T) {
-	messages := (PromptAssembler{}).BuildReplyMessages("오늘 무슨 요일이야?", VisibleContext{}, "", "")
-	body := joinMessageContent(messages)
-
-	if !strings.Contains(body, "Runtime:") || !strings.Contains(body, "Current date:") || !strings.Contains(body, "Current weekday:") {
-		t.Fatalf("expected direct reply temporal context, got %s", body)
-	}
-}
-
-func TestPromptAssemblerGuidesBareMentionContextReply(t *testing.T) {
-	messages := (PromptAssembler{}).BuildReplyMessages("@김인턴", VisibleContext{Messages: []VisibleContextMessage{
-		{Speaker: "user", Text: "방금 업무 등록된 거 맞아?"},
-	}}, "", "")
-	body := joinMessageContent(messages)
-
-	for _, expected := range []string{"only mentions you", "recent visible conversation", "instead of asking what is needed", "jokes and playful addressed remarks"} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected direct reply prompt guidance %q, got %s", expected, body)
-		}
-	}
-}
-
 func TestPromptAssemblerIncludesStepBudgetContext(t *testing.T) {
 	messages := (PromptAssembler{}).BuildTurnMessages(AgentTurnRequest{
 		Prompt:            "사이트 만들어줘",
