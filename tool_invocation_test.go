@@ -93,7 +93,7 @@ func TestAgentTurnRunnerStoresLargeToolResultAsArtifact(t *testing.T) {
 }
 
 func TestModelVisibleToolResultSummaryKeepsPublishedSiteURL(t *testing.T) {
-	content := `{"siteID":"site-1","slug":"tangerine-hub","mode":"publish","publishedURL":"https://tangerine-hub.example-device.example.test","sourceSHA256":"` + strings.Repeat("a", 64) + `","description":"` + strings.Repeat("x", 4096) + `"}`
+	content := `{"siteID":"site-1","slug":"tangerine-hub","mode":"publish","publishedURL":"https://tangerine-hub.example.test","sourceSHA256":"` + strings.Repeat("a", 64) + `","description":"` + strings.Repeat("x", 4096) + `"}`
 	summary := modelVisibleToolResultSummary(context.Background(), nil, "site_serve", turnObservation{
 		Tool: "site_serve",
 		Output: toolcontract.ToolOutput{
@@ -101,7 +101,7 @@ func TestModelVisibleToolResultSummaryKeepsPublishedSiteURL(t *testing.T) {
 		},
 	})
 
-	if !strings.Contains(summary, "publishedURL=https://tangerine-hub.example-device.example.test") {
+	if !strings.Contains(summary, "publishedURL=https://tangerine-hub.example.test") {
 		t.Fatalf("expected exact publishedURL in summary, got %q", summary)
 	}
 	if strings.Contains(summary, strings.Repeat("x", 512)) {
@@ -110,7 +110,7 @@ func TestModelVisibleToolResultSummaryKeepsPublishedSiteURL(t *testing.T) {
 }
 
 func TestModelVisibleToolResultSummaryKeepsPreviewURLForPreviewServe(t *testing.T) {
-	content := `{"siteID":"site-1","slug":"draft-site","mode":"preview","previewURL":"https://draft-site.example-device.example.test/__preview/preview-1","sourceSHA256":"` + strings.Repeat("a", 64) + `"}`
+	content := `{"siteID":"site-1","slug":"draft-site","mode":"preview","previewURL":"https://draft-site.example.test/__preview/preview-1","sourceSHA256":"` + strings.Repeat("a", 64) + `"}`
 	summary := modelVisibleToolResultSummary(context.Background(), nil, "site_serve", turnObservation{
 		Tool: "site_serve",
 		Output: toolcontract.ToolOutput{
@@ -118,7 +118,7 @@ func TestModelVisibleToolResultSummaryKeepsPreviewURLForPreviewServe(t *testing.
 		},
 	})
 
-	if !strings.Contains(summary, "previewURL=https://draft-site.example-device.example.test/__preview/preview-1") {
+	if !strings.Contains(summary, "previewURL=https://draft-site.example.test/__preview/preview-1") {
 		t.Fatalf("expected exact previewURL in summary, got %q", summary)
 	}
 	if strings.Contains(summary, "publishedURL") {
