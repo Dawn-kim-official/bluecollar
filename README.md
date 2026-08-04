@@ -2,6 +2,11 @@
 
 # bluecollar
 
+[![check](https://github.com/Dawn-kim-official/bluecollar/actions/workflows/check.yml/badge.svg)](https://github.com/Dawn-kim-official/bluecollar/actions/workflows/check.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Dawn-kim-official/bluecollar.svg)](https://pkg.go.dev/github.com/Dawn-kim-official/bluecollar)
+[![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 > **Status: pre-alpha, under active development.** The exported API, the
 > contract types and the event names all still change without notice, and there
 > is no release, no versioning policy and no migration path between commits. It
@@ -11,19 +16,21 @@
 An agent harness: the loop that takes a request, decides what to do, calls tools, and answers.
 
 bluecollar does not own tools, identity, or storage. It is handed a tool set and a task store by a
-host and runs the turn. That separation is the point — the same loop runs behind a chat connector on
-a server, or in front of you in a terminal.
+host and runs the turn. The same loop therefore runs behind a chat connector on a server, or in a
+terminal in front of you.
 
 It is built for work nobody is watching. A request arrives from someone else, the person who sent it
-goes back to their day, and the answer has to be right without anyone checking. That assumption is
-why the loop carries things an interactive coding agent has no use for: an outcome contract agreed
-before the work starts, a completion gate that will not accept the model's own word that it is done,
-approval as a state a task can sit in for days and resume from, a tier ladder that picks the model
-from the difficulty rather than from a flag, and failure text written for the person who asked
-rather than for a log.
+goes back to their day, and the answer has to be right without anyone checking. So the loop carries
+what an interactive coding agent has no use for:
 
-The trade is real and worth stating plainly: it is heavier than an interactive loop, and for sitting
-beside a developer and fixing code as they watch, a coding agent is the better tool.
+- an outcome contract agreed before work starts
+- a completion gate that will not take the model's word that it is done
+- approval as a state a task can sit in for days and resume from
+- a tier ladder that picks the model from the difficulty, not from a flag
+- failure text written for the person who asked, not for a log
+
+It is heavier than an interactive loop. For sitting beside a developer and fixing code as they
+watch, a coding agent is the better tool.
 
 ## The shape
 
@@ -66,17 +73,13 @@ nothing about where it runs.
 ## Provider-agnostic
 
 Models reach bluecollar through a provider port, not a vendor SDK. Anything satisfying it works, and
-the provider can change **between steps of a running turn** — the tier ladder relies on that, escalating
+the provider can change between steps of a running turn. The tier ladder relies on that: it escalates
 a task from a cheap model to a strong one without restarting it.
 
-There is no provider implementation in this module — the port is the contract, and the host brings
-the provider. The reference one, in [blueclaw](https://github.com/Dawn-kim-official/blueclaw), is an
-[AI SDK](https://ai-sdk.dev) sidecar, which is what makes "any model" literal rather than
-aspirational.
+There is no provider implementation in this module; the host brings one. The reference is an
+[AI SDK](https://ai-sdk.dev) sidecar in [blueclaw](https://github.com/Dawn-kim-official/blueclaw).
 
 ## What is not here yet
-
-Honest list, kept current:
 
 - A terminal front end of its own. Planned on [termcn](https://github.com/shadcn-labs/termcn); today
   the only way to drive the loop is to embed it in a host.
