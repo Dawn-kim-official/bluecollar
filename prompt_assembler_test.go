@@ -349,12 +349,7 @@ func TestPromptAssemblerIncludesWritableWorkspaceContext(t *testing.T) {
 	for _, expected := range []string{
 		"Terminal commands run as the requester POSIX identity",
 		"~ is your Linux home ($HOME)",
-		"Do all document work — build, edit, and deliver — directly in ~/documents/",
-		"save finished documents (Word, PDF, Excel, slides) as ~/documents/<name>.<ext>",
-		"ls ~/documents",
 		"concrete POSIX path under your home also resolves",
-		"Circle-shared files live under /workspace/circles/<circleID>",
-		"/workspace/.blueclaw is service-owned runtime state",
 		"ls -ld .",
 		"stat -c '%A %U %G %n' .",
 		"test -w .",
@@ -478,4 +473,27 @@ func messagesContainUserImagePart(messages []model.Message) bool {
 		}
 	}
 	return false
+}
+
+func TestWorkspaceContextCarriesTheHostsOwnSandboxDescription(t *testing.T) {
+	body := buildWorkspaceContextDescription(AgentTurnRequest{
+		WorkspaceDefaultPath: "/srv/agent/people/person-1",
+		WorkspaceGuidance: []string{
+			"Circle-shared files live under /srv/agent/circles/<circleID>.",
+			"",
+			"/srv/agent/.runtime is service-owned.",
+		},
+	})
+
+	for _, expected := range []string{
+		"Circle-shared files live under /srv/agent/circles/<circleID>.",
+		"/srv/agent/.runtime is service-owned.",
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected the host's sandbox description %q, got %s", expected, body)
+		}
+	}
+	if strings.Contains(body, "\n\n") {
+		t.Fatalf("expected empty guidance lines to be dropped, got %s", body)
+	}
 }

@@ -768,7 +768,5 @@ func isAgentWorkspacePathValue(value any) bool {
 		return false
 	}
 	trimmedText := strings.TrimSpace(text)
-	return strings.HasPrefix(trimmedText, "/workspace/") ||
-		strings.HasPrefix(trimmedText, "~/") ||
-		strings.HasPrefix(trimmedText, "~")
+	return strings.HasPrefix(trimmedText, "~/") || trimmedText == "~"
 }

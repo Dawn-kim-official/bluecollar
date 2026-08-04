@@ -28,7 +28,7 @@ func TestSelectInstructionBundleIncludesPresentationForKoreanPPTRequest(t *testi
 				Prompt:         "Generate PPTX with Marp.",
 				TriggerHints:   []string{"피피티", "파워포인트", "발표자료", "pptx"},
 				ToolReferences: []string{"terminal_run", "file_write", "file_deliver"},
-				Source:         InstructionSource{Path: "skills/presentation/SKILL.md", SkillName: "presentation"},
+				Source:         InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SkillName: "presentation"},
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestSelectInstructionBundleIncludesPresentationForKoreanPPTRequest(t *testi
 	if !strings.Contains(selectedBundle.Prompt, "Available skill references") || !strings.Contains(selectedBundle.Prompt, "They are not mandatory") {
 		t.Fatalf("expected selected skill prompt to be framed as references, got %q", selectedBundle.Prompt)
 	}
-	if !strings.Contains(selectedBundle.Prompt, "Source: /workspace/skills/presentation/SKILL.md") ||
+	if !strings.Contains(selectedBundle.Prompt, "Source: /srv/agent/skills/presentation/SKILL.md") ||
 		!strings.Contains(selectedBundle.Prompt, "Resolve relative scripts, references, and assets from the source directory.") {
 		t.Fatalf("expected selected skill resources to have a canonical base path, got %q", selectedBundle.Prompt)
 	}
@@ -73,7 +73,7 @@ func TestSelectInstructionBundleDoesNotUseStaleVisibleContextForRetrieval(t *tes
 				Prompt:         "Generate PPTX with Marp.",
 				TriggerHints:   []string{"피피티", "pptx"},
 				ToolReferences: []string{"terminal_run", "file_write", "file_deliver"},
-				Source:         InstructionSource{Path: "skills/presentation/SKILL.md", SkillName: "presentation"},
+				Source:         InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SkillName: "presentation"},
 			},
 		},
 	}
@@ -104,7 +104,7 @@ func TestSelectInstructionBundleDoesNotUseTriggerHintOutsideRetrievalCandidates(
 				WhenToUse:      "Use for website prototype requests.",
 				Prompt:         "Use site_serve, terminal_run, and site.serve.",
 				ToolReferences: []string{"terminal_run", "site_serve", "site_serve"},
-				Source:         InstructionSource{Path: "skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
+				Source:         InstructionSource{Path: "/srv/agent/skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
 			},
 		},
 	}
@@ -481,7 +481,7 @@ func TestBM25RetrieverSelectsStandardSkill(t *testing.T) {
 				Description: "Create presentation slides, 피피티, and PPTX decks.",
 				WhenToUse:   "Use for pitch decks, 발표자료, 피피티, and PowerPoint requests.",
 				Prompt:      "Generate slides.",
-				Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
+				Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
 			},
 			{
 				Name:        "calendar",
@@ -519,7 +519,7 @@ func TestSiteArtifactRequestAllowsContentDomainSkillsButGuidesPromptToTheActualT
 				Description: "Create, publish, and update website prototypes, homepages, web apps, landing pages, and deployed sites.",
 				WhenToUse:   "Use for website, homepage, web app, site, publish, deploy, 홈페이지, 웹사이트, 사이트, and 배포 requests.",
 				Prompt:      "Follow site prototype workflow.",
-				Source:      InstructionSource{Path: "skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
+				Source:      InstructionSource{Path: "/srv/agent/skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
 			},
 			{
 				Name:        "mail",
@@ -593,7 +593,7 @@ func TestNonArtifactFlowTaskRequestIsNotDominatedByPresentation(t *testing.T) {
 				WhenToUse:      "Use for slides, slide decks, presentations, PPTX, PowerPoint, 발표자료, 파워포인트, 피피티.",
 				Prompt:         "Follow slides workflow.",
 				ToolReferences: []string{"terminal_run", "file_write", "file_deliver"},
-				Source:         InstructionSource{Path: "skills/presentation/SKILL.md", SkillName: "presentation"},
+				Source:         InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SkillName: "presentation"},
 			},
 			{
 				Name:           "internkim-flow",
@@ -690,7 +690,7 @@ func TestBM25RetrieverSelectsScheduledTaskForFiniteRepeat(t *testing.T) {
 				Name:        "presentation",
 				Description: "Create presentation slides and PPTX decks.",
 				Prompt:      "Generate slides.",
-				Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "slides", SkillName: "presentation"},
+				Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "slides", SkillName: "presentation"},
 			},
 		},
 	}
@@ -1130,7 +1130,7 @@ func TestStructuredSkillQueryRecordsLatestRequestWebsiteQueryWithStaleContext(t 
 			Description:    "Create and publish website prototypes.",
 			Prompt:         "Use site_serve and site.serve.",
 			ToolReferences: []string{"site_serve", "site_serve"},
-			Source:         InstructionSource{Path: "skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
+			Source:         InstructionSource{Path: "/srv/agent/skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
 		}},
 	}
 	retriever := NewEmbeddingSkillRetriever(nil, "")
@@ -1309,7 +1309,7 @@ func TestWebsiteSkillSurvivesWhenSkillIsFifthCandidate(t *testing.T) {
 			Description:    "Create and publish website prototypes.",
 			Prompt:         "SITE BODY",
 			ToolReferences: []string{"terminal_run", "site_serve", "site_serve"},
-			Source:         InstructionSource{Path: "skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
+			Source:         InstructionSource{Path: "/srv/agent/skills/site-prototype/SKILL.md", SkillName: "site-prototype"},
 		},
 		{Name: "extra", Description: "Extra skill.", Prompt: "EXTRA BODY"},
 	}
@@ -1346,7 +1346,7 @@ func TestSkillIndexPromptStaysBoundedForManySkills(t *testing.T) {
 		Description: "Create presentation slides and 피피티.",
 		WhenToUse:   "Use for 피피티.",
 		Prompt:      "Generate slides.",
-		Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "match", SkillName: "presentation"},
+		Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "match", SkillName: "presentation"},
 	}}
 	for index := 0; index < 1000; index++ {
 		skills = append(skills, SkillInstruction{
@@ -1397,7 +1397,7 @@ func TestBM25FallbackIsObservableWhenEmbeddingDimensionMismatches(t *testing.T) 
 			Description: "Create presentation slides and 피피티.",
 			WhenToUse:   "Use for 피피티.",
 			Prompt:      "Generate slides.",
-			Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
+			Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
 		}},
 	}
 	retriever := NewEmbeddingSkillRetriever(&dimensionChangingEmbeddingProvider{}, "")
@@ -1420,12 +1420,12 @@ func TestSkillIndexRefreshesWhenSourceHashChanges(t *testing.T) {
 	firstBundle := []SkillInstruction{{
 		Name:        "presentation",
 		Description: "Create presentation slides and 피피티.",
-		Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
+		Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
 	}}
 	secondBundle := []SkillInstruction{{
 		Name:        "presentation",
 		Description: "Create presentation slides.",
-		Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "two", SkillName: "presentation"},
+		Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "two", SkillName: "presentation"},
 	}}
 
 	retriever.Refresh(context.Background(), firstBundle)
@@ -1451,7 +1451,7 @@ func TestSkillIndexRefreshesWhenSearchDocumentVersionChanges(t *testing.T) {
 	retriever.Refresh(context.Background(), []SkillInstruction{{
 		Name:        "presentation",
 		Description: "Create presentation slides.",
-		Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
+		Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
 	}})
 
 	document, errorValue := os.ReadFile(indexPath)
@@ -1474,7 +1474,7 @@ func TestSkillIndexIncludesConfiguredEmbeddingModel(t *testing.T) {
 	retriever.Refresh(context.Background(), []SkillInstruction{{
 		Name:        "presentation",
 		Description: "Create presentation slides.",
-		Source:      InstructionSource{Path: "skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
+		Source:      InstructionSource{Path: "/srv/agent/skills/presentation/SKILL.md", SHA256: "one", SkillName: "presentation"},
 	}})
 
 	document, errorValue := os.ReadFile(indexPath)

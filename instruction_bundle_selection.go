@@ -467,12 +467,14 @@ func selectedSkillInstructionPrompt(skillInstruction SkillInstruction) string {
 }
 
 func selectedSkillSourcePath(skillInstruction SkillInstruction) string {
-	skillName := strings.TrimSpace(skillInstruction.Name)
-	sourcePath := "/" + strings.TrimPrefix(strings.ReplaceAll(strings.TrimSpace(skillInstruction.Source.Path), "\\", "/"), "/")
-	if strings.Contains(sourcePath, "/.agents/skills/") {
-		return "/workspace/.agents/skills/" + skillName + "/SKILL.md"
+	sourcePath := strings.TrimSpace(strings.ReplaceAll(skillInstruction.Source.Path, "\\", "/"))
+	if sourcePath == "" {
+		return ""
 	}
-	return "/workspace/skills/" + skillName + "/SKILL.md"
+	if strings.HasSuffix(sourcePath, "/SKILL.md") {
+		return sourcePath
+	}
+	return strings.TrimSuffix(sourcePath, "/") + "/SKILL.md"
 }
 
 func nonEmptyStrings(values []string) []string {
