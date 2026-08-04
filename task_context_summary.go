@@ -73,18 +73,41 @@ func (agentTurnRunner *AgentTurnRunner) promptVisibleObservationsForAction(ctx c
 	summary.CompactedThroughObservationID = plan.CompactedThroughObservationID
 	summary.CompactedObservationIDs = append([]string{}, plan.CompactedObservationIDs...)
 	compactedObservations := promptVisibleObservations(state.Observations, summary, pinnedObservationIDs)
-	summary = summaryAccountingForCompactedObservations(summary, compactedObservations, plan, taskEvents)
+	summary = summaryAccountingForCompactedObservations(summary, currentSummary, compactedObservations, plan, taskEvents)
 	summary = normalizeTaskContextSummary(summary)
 	agentTurnRunner.appendEvent(taskRunID, taskContextSummaryEventName, marshalEventBody(summary))
 	return compactedObservations
 }
 
-func summaryAccountingForCompactedObservations(summary TaskContextSummary, compactedObservations []turnObservation, plan taskContextCompactionPlan, events []taskstate.TaskEvent) TaskContextSummary {
+func summaryAccountingForCompactedObservations(summary TaskContextSummary, previousSummary TaskContextSummary, compactedObservations []turnObservation, plan taskContextCompactionPlan, events []taskstate.TaskEvent) TaskContextSummary {
+	taskEventIDByObservationID := taskEventIDByObservationID(events)
+	newlyCompactedObservations := observationsNotYetCompacted(plan.CompactableObservations, taskEventIDByObservationID, previouslyCompactedTaskEventIDs(previousSummary, taskEventIDByObservationID))
+
 	summary.RetainedObservations = observationsExcept(compactedObservations, summary.ObservationID)
-	summary.CompactedObservationCount = len(plan.CompactableObservations)
-	summary.CompactedToolCallCount = successfulToolCallCount(plan.CompactableObservations)
-	summary.AccountedTaskEventIDs = taskEventIDsForObservations(events, append(observationIDsOf(summary.RetainedObservations), plan.CompactedObservationIDs...))
+	summary.CompactedObservationCount = previousSummary.CompactedObservationCount + len(newlyCompactedObservations)
+	summary.CompactedToolCallCount = previousSummary.CompactedToolCallCount + successfulToolCallCount(newlyCompactedObservations)
+	summary.AccountedTaskEventIDs = appendMissingStrings(previousSummary.AccountedTaskEventIDs,
+		taskEventIDsOf(taskEventIDByObservationID, append(observationIDsOf(summary.RetainedObservations), plan.CompactedObservationIDs...)))
 	return summary
+}
+
+func previouslyCompactedTaskEventIDs(previousSummary TaskContextSummary, taskEventIDByObservationID map[string]string) map[string]bool {
+	compactedTaskEventIDs := stringSet(previousSummary.AccountedTaskEventIDs)
+	for _, observationID := range observationIDsOf(previousSummary.RetainedObservations) {
+		delete(compactedTaskEventIDs, taskEventIDByObservationID[strings.TrimSpace(observationID)])
+	}
+	return compactedTaskEventIDs
+}
+
+func observationsNotYetCompacted(observations []turnObservation, taskEventIDByObservationID map[string]string, compactedTaskEventIDs map[string]bool) []turnObservation {
+	pendingObservations := []turnObservation{}
+	for _, observation := range observations {
+		if compactedTaskEventIDs[taskEventIDByObservationID[strings.TrimSpace(observation.ObservationID)]] {
+			continue
+		}
+		pendingObservations = append(pendingObservations, observation)
+	}
+	return pendingObservations
 }
 
 func observationsExcept(observations []turnObservation, excludedObservationID string) []turnObservation {
@@ -106,17 +129,44 @@ func observationIDsOf(observations []turnObservation) []string {
 	return observationIDs
 }
 
-func taskEventIDsForObservations(events []taskstate.TaskEvent, observationIDs []string) []string {
-	wantedObservationIDs := stringSet(observationIDs)
-	taskEventIDs := []string{}
+func taskEventIDByObservationID(events []taskstate.TaskEvent) map[string]string {
+	taskEventIDByObservationID := map[string]string{}
 	for _, event := range events {
-		observation, errorValue := decodeTurnObservation([]byte(event.Body))
-		if errorValue != nil || !wantedObservationIDs[strings.TrimSpace(observation.ObservationID)] {
+		if !isToolResultTaskEvent(event) {
 			continue
 		}
-		taskEventIDs = append(taskEventIDs, event.TaskEventID)
+		observation, errorValue := decodeTurnObservation([]byte(event.Body))
+		if errorValue != nil {
+			continue
+		}
+		if observationID := strings.TrimSpace(observation.ObservationID); observationID != "" {
+			taskEventIDByObservationID[observationID] = event.TaskEventID
+		}
+	}
+	return taskEventIDByObservationID
+}
+
+func taskEventIDsOf(taskEventIDByObservationID map[string]string, observationIDs []string) []string {
+	taskEventIDs := []string{}
+	for _, observationID := range observationIDs {
+		if taskEventID := taskEventIDByObservationID[strings.TrimSpace(observationID)]; taskEventID != "" {
+			taskEventIDs = append(taskEventIDs, taskEventID)
+		}
 	}
 	return taskEventIDs
+}
+
+func appendMissingStrings(values []string, additionalValues []string) []string {
+	presentValues := stringSet(values)
+	combinedValues := append([]string{}, values...)
+	for _, additionalValue := range additionalValues {
+		if presentValues[additionalValue] {
+			continue
+		}
+		presentValues[additionalValue] = true
+		combinedValues = append(combinedValues, additionalValue)
+	}
+	return combinedValues
 }
 
 func latestTaskContextSummary(fallback TaskContextSummary, events []taskstate.TaskEvent) TaskContextSummary {
