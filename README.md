@@ -13,11 +13,12 @@
 > is published so the design can be read and argued with, not so it can be
 > depended on. If you import it, pin a commit and expect to read diffs.
 
-An agent harness: the loop that takes a request, decides what to do, calls tools, and answers.
+bluecollar is a headless, embeddable agent harness for unattended work: the loop that takes a
+request, decides what to do, calls tools, and answers.
 
-bluecollar does not own tools, identity, or storage. It is handed a tool set and a task store by a
-host and runs the turn. The same loop therefore runs behind a chat connector on a server, or in a
-terminal in front of you.
+It owns no tools, no identity and no storage. A host hands it a tool set and a task store and it
+runs the turn, so the same loop runs behind a chat connector on a server or in a terminal in front
+of you.
 
 It is built for work nobody is watching. A request arrives from someone else, the person who sent it
 goes back to their day, and the answer has to be right without anyone checking. So the loop carries
@@ -26,7 +27,7 @@ what an interactive coding agent has no use for:
 - an outcome contract agreed before work starts
 - a completion gate that will not take the model's word that it is done
 - approval as a state a task can sit in for days and resume from
-- a tier ladder that picks the model from the difficulty, not from a flag
+- a tier ladder that picks the model from the difficulty of the work
 - failure text written for the person who asked, not for a log
 
 It is heavier than an interactive loop. For sitting beside a developer and fixing code as they
@@ -72,12 +73,36 @@ nothing about where it runs.
 
 ## Provider-agnostic
 
-Models reach bluecollar through a provider port, not a vendor SDK. Anything satisfying it works, and
+Models reach bluecollar through a provider port. Anything satisfying it works, and
 the provider can change between steps of a running turn. The tier ladder relies on that: it escalates
 a task from a cheap model to a strong one without restarting it.
 
-There is no provider implementation in this module; the host brings one. The reference is an
-[AI SDK](https://ai-sdk.dev) sidecar in [blueclaw](https://github.com/Dawn-kim-official/blueclaw).
+`model/openaicompatible` is the one implementation shipped here, so the module runs against Ollama,
+vLLM, OpenRouter or anything else speaking `/chat/completions`. Hosts that need routing, tiering or
+usage accounting bring their own; the reference is an [AI SDK](https://ai-sdk.dev) sidecar in
+[blueclaw](https://github.com/Dawn-kim-official/blueclaw).
+
+## Running it
+
+`cmd/bluecollar` runs one turn against a local model and prints the ledger to stderr, which is the
+shortest way to see the loop work before embedding it.
+
+```bash
+ollama serve &
+go run ./cmd/bluecollar --model qwen3:4b "In one sentence, what is a POSIX user?"
+```
+
+```
+task.created  In one sentence, what is a POSIX user?
+task.running  assistant
+agent.instructions_loaded  {"activeGoal":{"outcomeContract":{"artifactRequirement":"none"…
+llm.call  {"kind":"structured","schemaName":"bluecollar_agent_turn_action","model":"qwen3:4b"…
+agent.action  {"action":"finish"…
+task.completed
+```
+
+It has no tools. The loop reasons and answers, and every step is still a ledger entry — which is the
+point of reading it: the same events appear whether the turn calls fifty tools or none.
 
 ## What it promises
 
@@ -91,8 +116,9 @@ go test -run 'Checkpoint|Resume|Approval' -v .
 
 ## What is not here yet
 
-- A terminal front end of its own. Planned on [termcn](https://github.com/shadcn-labs/termcn); today
-  the only way to drive the loop is to embed it in a host.
+- Tools in the standalone runner. It reasons and answers; a host supplies the tool set.
+- An interactive terminal front end, and none is planned here. `cmd/bluecollar` prints a ledger and
+  exits; the interface belongs to whichever host embeds the loop.
 - Native multi-step tool calling. The loop currently forces one structured action per step, which
   costs a turn per tool call and blocks parallel calls. Migration is planned and staged.
 
