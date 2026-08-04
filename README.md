@@ -79,6 +79,16 @@ a task from a cheap model to a strong one without restarting it.
 There is no provider implementation in this module; the host brings one. The reference is an
 [AI SDK](https://ai-sdk.dev) sidecar in [blueclaw](https://github.com/Dawn-kim-official/blueclaw).
 
+## What it promises
+
+The loop's guarantees are written as tests, so the names are the specification.
+
+<img src="assets/guarantees.png" alt="go test output: approval continuation restores the selected tool decision, launch failure redacts the raw error, a waiting task resumes without flags, a checkpoint does not lose the work it absorbed, checkpoint bookkeeping never reaches the model" width="100%">
+
+```bash
+go test -run 'Checkpoint|Resume|Approval' -v .
+```
+
 ## What is not here yet
 
 - A terminal front end of its own. Planned on [termcn](https://github.com/shadcn-labs/termcn); today
