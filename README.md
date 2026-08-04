@@ -6,10 +6,6 @@ bluecollar does not own tools, identity, or storage. It is handed a tool set and
 host and runs the turn. That separation is the point — the same loop runs behind a chat connector on
 a server, or in front of you in a terminal.
 
-Status: extraction in progress. The loop currently lives inside
-[blueclaw](https://github.com/Dawn-kim-official/blueclaw) at `internal/bluecollar` and is being moved
-here. See "What is not here yet".
-
 ## The shape
 
 ```
@@ -22,7 +18,7 @@ host  ──── agentcontract.Harness ────  bluecollar
 ```
 
 The host and the harness compile against one shared contract package,
-[`blueclaw/agentcontract`](https://github.com/Dawn-kim-official/blueclaw/tree/main/agentcontract).
+[`agentcontract`](./agentcontract).
 The host names only that interface, never this package. A different harness — an AI SDK adapter, an
 external agent — drops into the same socket.
 
@@ -57,7 +53,6 @@ literal rather than aspirational.
 
 Honest list, kept current:
 
-- The loop itself. It is still in the blueclaw repo pending the module split.
 - The terminal CLI. Planned on [termcn](https://github.com/shadcn-labs/termcn).
 - Native multi-step tool calling. The loop currently forces one structured action per step, which
   costs a turn per tool call and blocks parallel calls. Migration is planned and staged.
