@@ -28,6 +28,15 @@ type TaskContextSummary struct {
 	ExhaustedRecoveryRoutes       []string `json:"exhaustedRecoveryRoutes,omitempty"`
 	ActiveFailureDebt             []string `json:"activeFailureDebt,omitempty"`
 	NextPlan                      []string `json:"nextPlan,omitempty"`
+
+	AccountedTaskEventIDs     []string          `json:"accountedTaskEventIDs,omitempty"`
+	RetainedObservations      []turnObservation `json:"retainedObservations,omitempty"`
+	CompactedObservationCount int               `json:"compactedObservationCount,omitempty"`
+	CompactedToolCallCount    int               `json:"compactedToolCallCount,omitempty"`
+}
+
+func (summary TaskContextSummary) accountsForTaskEvents() bool {
+	return len(summary.AccountedTaskEventIDs) > 0
 }
 
 func taskContextSummaryFromTaskEvents(events []taskstate.TaskEvent) TaskContextSummary {
@@ -63,9 +72,51 @@ func (agentTurnRunner *AgentTurnRunner) promptVisibleObservationsForAction(ctx c
 	summary.ObservationID = "context-summary-" + plan.CompactedThroughObservationID
 	summary.CompactedThroughObservationID = plan.CompactedThroughObservationID
 	summary.CompactedObservationIDs = append([]string{}, plan.CompactedObservationIDs...)
+	compactedObservations := promptVisibleObservations(state.Observations, summary, pinnedObservationIDs)
+	summary = summaryAccountingForCompactedObservations(summary, compactedObservations, plan, taskEvents)
 	summary = normalizeTaskContextSummary(summary)
 	agentTurnRunner.appendEvent(taskRunID, taskContextSummaryEventName, marshalEventBody(summary))
-	return promptVisibleObservations(state.Observations, summary, pinnedObservationIDs)
+	return compactedObservations
+}
+
+func summaryAccountingForCompactedObservations(summary TaskContextSummary, compactedObservations []turnObservation, plan taskContextCompactionPlan, events []taskstate.TaskEvent) TaskContextSummary {
+	summary.RetainedObservations = observationsExcept(compactedObservations, summary.ObservationID)
+	summary.CompactedObservationCount = len(plan.CompactableObservations)
+	summary.CompactedToolCallCount = successfulToolCallCount(plan.CompactableObservations)
+	summary.AccountedTaskEventIDs = taskEventIDsForObservations(events, append(observationIDsOf(summary.RetainedObservations), plan.CompactedObservationIDs...))
+	return summary
+}
+
+func observationsExcept(observations []turnObservation, excludedObservationID string) []turnObservation {
+	keptObservations := []turnObservation{}
+	for _, observation := range observations {
+		if strings.TrimSpace(observation.ObservationID) == strings.TrimSpace(excludedObservationID) {
+			continue
+		}
+		keptObservations = append(keptObservations, observation)
+	}
+	return keptObservations
+}
+
+func observationIDsOf(observations []turnObservation) []string {
+	observationIDs := []string{}
+	for _, observation := range observations {
+		observationIDs = append(observationIDs, observation.ObservationID)
+	}
+	return observationIDs
+}
+
+func taskEventIDsForObservations(events []taskstate.TaskEvent, observationIDs []string) []string {
+	wantedObservationIDs := stringSet(observationIDs)
+	taskEventIDs := []string{}
+	for _, event := range events {
+		observation, errorValue := decodeTurnObservation([]byte(event.Body))
+		if errorValue != nil || !wantedObservationIDs[strings.TrimSpace(observation.ObservationID)] {
+			continue
+		}
+		taskEventIDs = append(taskEventIDs, event.TaskEventID)
+	}
+	return taskEventIDs
 }
 
 func latestTaskContextSummary(fallback TaskContextSummary, events []taskstate.TaskEvent) TaskContextSummary {
@@ -153,7 +204,7 @@ func promptVisibleObservations(observations []turnObservation, summary TaskConte
 }
 
 func summaryObservation(summary TaskContextSummary) turnObservation {
-	content := marshalEventBody(normalizeTaskContextSummary(summary))
+	content := marshalEventBody(summaryAsTheModelReadsIt(summary))
 	return turnObservation{
 		ObservationID: strings.TrimSpace(summary.ObservationID),
 		Action:        "context_summary",
@@ -261,11 +312,21 @@ func taskContextSummarySchema() string {
 	return `{"type":"object","properties":{"goal":{"type":"string"},"completedSteps":{"type":"array","items":{"type":"string"}},"artifacts":{"type":"array","items":{"type":"string"}},"keyDecisions":{"type":"array","items":{"type":"string"}},"exhaustedRecoveryRoutes":{"type":"array","items":{"type":"string"}},"activeFailureDebt":{"type":"array","items":{"type":"string"}},"nextPlan":{"type":"array","items":{"type":"string"}}},"required":["goal","completedSteps","artifacts","keyDecisions","exhaustedRecoveryRoutes","activeFailureDebt","nextPlan"],"additionalProperties":false}`
 }
 
+func summaryAsTheModelReadsIt(summary TaskContextSummary) TaskContextSummary {
+	summary.AccountedTaskEventIDs = nil
+	summary.RetainedObservations = nil
+	return normalizeTaskContextSummary(summary)
+}
+
 func normalizeTaskContextSummary(summary TaskContextSummary) TaskContextSummary {
 	return TaskContextSummary{
 		ObservationID:                 strings.TrimSpace(summary.ObservationID),
 		CompactedThroughObservationID: strings.TrimSpace(summary.CompactedThroughObservationID),
 		CompactedObservationIDs:       normalizeTaskContextSummaryList(summary.CompactedObservationIDs, 64),
+		AccountedTaskEventIDs:         summary.AccountedTaskEventIDs,
+		RetainedObservations:          summary.RetainedObservations,
+		CompactedObservationCount:     summary.CompactedObservationCount,
+		CompactedToolCallCount:        summary.CompactedToolCallCount,
 		Goal:                          truncateText(compactWhitespace(summary.Goal), 500),
 		CompletedSteps:                normalizeTaskContextSummaryList(summary.CompletedSteps, 24),
 		Artifacts:                     normalizeTaskContextSummaryList(summary.Artifacts, 24),
