@@ -1,6 +1,7 @@
 package bluecollar
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -187,5 +188,48 @@ func TestRecompactingTheSameObservationDoesNotCountItTwice(t *testing.T) {
 
 	if secondCheckpoint.CompactedObservationCount != 4 {
 		t.Fatalf("the warm path recompacts the whole history every time; expected 4, got %d", secondCheckpoint.CompactedObservationCount)
+	}
+}
+
+func TestACompactedRunResumesToExactlyWhatTheModelWasLastShown(t *testing.T) {
+	observations := numberedContextSummaryObservations(14, 2000, "history")
+	summaryResponse := `{"goal":"ship","completedSteps":["rolled summary"],"artifacts":[],"keyDecisions":[],"exhaustedRecoveryRoutes":[],"activeFailureDebt":[],"nextPlan":["finish"]}`
+	languageModel := &sequenceLanguageModel{contents: []string{summaryResponse, finishMessageDocument("done")}}
+	services := newTurnRunnerTestServices(languageModel, TurnOptions{ContextWindowTokens: 1000})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "ship")
+	for _, observation := range observations {
+		services.taskEventService.AppendTaskEvent(taskRun.TaskRunID, "tool.note_write.result", marshalEventBody(observation))
+	}
+
+	state := agentTaskState{
+		Request:      AgentTurnRequest{Prompt: "ship"},
+		Options:      services.runner.options,
+		Observations: observations,
+	}
+	promptObservations := services.runner.promptVisibleObservationsForAction(context.Background(), taskRun.TaskRunID, state)
+
+	events := services.taskRunService.ListTaskEvent(taskRun.TaskRunID)
+	checkpoint := taskContextSummaryFromTaskEvents(events)
+	if !checkpoint.accountsForTaskEvents() {
+		t.Fatalf("expected the compaction to write a checkpoint, got %+v", checkpoint)
+	}
+
+	resumedState, errorValue := restoreAgentTaskState(
+		AgentTurnRequest{Prompt: "ship", IsRuntimeRestartResume: true},
+		services.runner.options,
+		taskstate.TaskRun{TaskRunID: taskRun.TaskRunID, Status: taskstate.TaskStatusRunning},
+		events,
+	)
+	if errorValue != nil {
+		t.Fatalf("expected the resume to rebuild state: %v", errorValue)
+	}
+
+	shownObservationIDs := observationIDsOf(observationsExcept(promptObservations, checkpoint.ObservationID))
+	resumedObservationIDs := observationIDsOf(resumedState.Observations)
+	if strings.Join(shownObservationIDs, ",") != strings.Join(resumedObservationIDs, ",") {
+		t.Fatalf("a resume must show the model what it was last shown; last shown %v, resumed %v", shownObservationIDs, resumedObservationIDs)
+	}
+	if resumedState.IterationCount != len(observations) {
+		t.Fatalf("expected the resumed run to still own its %d iterations, got %d", len(observations), resumedState.IterationCount)
 	}
 }
