@@ -260,7 +260,7 @@ func TestPromptAssemblerOmitsRawBrowserSnapshotOutput(t *testing.T) {
 }
 
 func TestPromptAssemblerIncludesRawToolResultSummary(t *testing.T) {
-	fetchResult := `{"results":[{"url":"https://example.com","content":"Yeomyeonggeori provides AI automation and blockchain solutions."}]}`
+	fetchResult := `{"results":[{"url":"https://example.com","content":"Example Corp provides sample automation and sample analytics services."}]}`
 	observations := []turnObservation{{
 		ObservationID: "obs-001",
 		Action:        "continue",
@@ -274,7 +274,7 @@ func TestPromptAssemblerIncludesRawToolResultSummary(t *testing.T) {
 	}, observations, "base", "")
 	body := joinMessageContent(messages)
 
-	if !strings.Contains(body, "Tool result context") || !strings.Contains(body, "Yeomyeonggeori provides AI automation") {
+	if !strings.Contains(body, "Tool result context") || !strings.Contains(body, "Example Corp provides sample automation") {
 		t.Fatalf("expected raw fetch summary in tool result context, got %s", body)
 	}
 }
