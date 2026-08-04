@@ -102,7 +102,7 @@ func TestAgentTurnRunnerCallsToolsUntilFinishMessage(t *testing.T) {
 			t.Fatalf("expected response tier to remain low instead of requested high, got %+v", record)
 		}
 	}
-	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "llm.call", "blueclaw_agent_turn_action") {
+	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "llm.call", "bluecollar_agent_turn_action") {
 		t.Fatal("expected llm.call event with action schema name")
 	}
 	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "tool.alpha.result", "durationMs") {
@@ -342,7 +342,7 @@ func TestAgentTurnRunnerUsesPostEvidenceWordingAfterCheckpoint(t *testing.T) {
 	if len(languageModel.requests) != 2 {
 		t.Fatalf("expected a post-evidence model call, got %d requests", len(languageModel.requests))
 	}
-	if languageModel.requests[1].StructuredOutputSchema.Name != "blueclaw_agent_turn_action" {
+	if languageModel.requests[1].StructuredOutputSchema.Name != "bluecollar_agent_turn_action" {
 		t.Fatalf("expected a post-evidence action, got %q", languageModel.requests[1].StructuredOutputSchema.Name)
 	}
 }
@@ -505,7 +505,7 @@ func TestDuplicateSuccessfulToolCallNarrowsNextActionSchemaToTerminalActions(t *
 
 	actionRequests := []model.StructuredResponseRequest{}
 	for _, request := range languageModel.requests {
-		if request.StructuredOutputSchema.Name == "blueclaw_agent_turn_action" {
+		if request.StructuredOutputSchema.Name == "bluecollar_agent_turn_action" {
 			actionRequests = append(actionRequests, request)
 		}
 	}
@@ -587,7 +587,7 @@ func TestOverlappingRepeatedFileReadDoesNotNarrowNextActionSchema(t *testing.T) 
 
 	actionRequests := []model.StructuredResponseRequest{}
 	for _, request := range languageModel.requests {
-		if request.StructuredOutputSchema.Name == "blueclaw_agent_turn_action" {
+		if request.StructuredOutputSchema.Name == "bluecollar_agent_turn_action" {
 			actionRequests = append(actionRequests, request)
 		}
 	}
@@ -801,7 +801,7 @@ func TestAgentTurnRunnerBudgetExhaustedContinueTriggersSingleTerminalNoToolsCall
 	if result.TaskRun.Status != taskstate.TaskStatusCompleted {
 		t.Fatalf("expected completed task, got %s", result.TaskRun.Status)
 	}
-	if countStructuredRequestsByName(languageModel.requests, "blueclaw_agent_terminal_no_tools_action") != 1 {
+	if countStructuredRequestsByName(languageModel.requests, "bluecollar_agent_terminal_no_tools_action") != 1 {
 		t.Fatalf("expected exactly one terminal no-tools request, got %+v", structuredRequestNames(languageModel.requests))
 	}
 	if toolCallCount != 1 {
@@ -909,7 +909,7 @@ func TestAgentTurnRunnerTerminalNoToolsRepairsInvalidOutputWithoutReopeningTools
 	if toolCallCount != 1 {
 		t.Fatalf("expected repair not to invoke tools, got %d calls", toolCallCount)
 	}
-	if countStructuredRequestsByName(languageModel.requests, "blueclaw_agent_terminal_no_tools_action") != 2 {
+	if countStructuredRequestsByName(languageModel.requests, "bluecollar_agent_terminal_no_tools_action") != 2 {
 		t.Fatalf("expected one terminal repair request, got %+v", structuredRequestNames(languageModel.requests))
 	}
 	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "agent.terminal_no_tools_rejected", "must be finish or fail") {
@@ -944,7 +944,7 @@ func TestAgentTurnRunnerTerminalNoToolsRejectsFinishWithoutFailureResolution(t *
 	if result.FinishMessage != "recovered after supplying a valid failureResolution." {
 		t.Fatalf("expected the repaired finish to be delivered, got %q", result.FinishMessage)
 	}
-	if countStructuredRequestsByName(languageModel.requests, "blueclaw_agent_terminal_no_tools_action") != 2 {
+	if countStructuredRequestsByName(languageModel.requests, "bluecollar_agent_terminal_no_tools_action") != 2 {
 		t.Fatalf("expected one terminal repair request, got %+v", structuredRequestNames(languageModel.requests))
 	}
 	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "agent.terminal_no_tools_rejected", "failureResolution to be recovered_with_success or no_tool_fallback") {
@@ -979,7 +979,7 @@ func TestAgentTurnRunnerTerminalNoToolsRejectsFailWithoutReason(t *testing.T) {
 	if result.TaskRun.Status != taskstate.TaskStatusFailed {
 		t.Fatalf("expected failed task, got %s", result.TaskRun.Status)
 	}
-	if countStructuredRequestsByName(languageModel.requests, "blueclaw_agent_terminal_no_tools_action") != 2 {
+	if countStructuredRequestsByName(languageModel.requests, "bluecollar_agent_terminal_no_tools_action") != 2 {
 		t.Fatalf("expected one terminal repair request, got %+v", structuredRequestNames(languageModel.requests))
 	}
 	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "agent.terminal_no_tools_rejected", "fail requires a non-empty reason") {
@@ -2385,7 +2385,7 @@ func (languageModel *sequenceLanguageModel) nextTextResponse(prompt string) stri
 }
 
 func (languageModel *sequenceLanguageModel) GenerateStructuredResponse(_ context.Context, request model.StructuredResponseRequest) (model.StructuredResponse, error) {
-	if request.StructuredOutputSchema.Name == "blueclaw_contract_skill_arbitration" {
+	if request.StructuredOutputSchema.Name == "bluecollar_contract_skill_arbitration" {
 		return model.StructuredResponse{Content: contractSkillArbitrationTestDocument(request.StructuredOutputSchema.Document)}, nil
 	}
 	if request.StructuredOutputSchema.Name == completionJudgeSchemaName {
@@ -2586,7 +2586,7 @@ func structuredRequestNames(requests []model.StructuredResponseRequest) []string
 func assertTerminalNoToolsSchemasExcludeToolActions(t *testing.T, requests []model.StructuredResponseRequest) {
 	t.Helper()
 	for _, request := range requests {
-		if request.StructuredOutputSchema.Name != "blueclaw_agent_terminal_no_tools_action" {
+		if request.StructuredOutputSchema.Name != "bluecollar_agent_terminal_no_tools_action" {
 			continue
 		}
 		if actionSchemaHasVariant(t, request.StructuredOutputSchema.Document, "continue") {

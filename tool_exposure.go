@@ -212,7 +212,7 @@ func exposedToolIDsForFiltering(exposedToolIDs []string) []string {
 	if len(exposedToolIDs) > 0 {
 		return exposedToolIDs
 	}
-	return []string{"__blueclaw_no_callable_tools__"}
+	return []string{"__bluecollar_no_callable_tools__"}
 }
 
 func toolSetForAgentTurn(toolSet *toolcontract.ToolSet, instructionBundle InstructionBundle, request AgentRequest, executionPlan ExecutionPlan, hasExecutionPlan bool, outcomeContract OutcomeContract) *toolcontract.ToolSet {

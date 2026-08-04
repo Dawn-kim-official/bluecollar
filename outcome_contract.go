@@ -246,7 +246,7 @@ func outcomeContractForRequest(request AgentRequest, intakeDecision IntakeDecisi
 		contract.SelectedEvidenceHints = filterStaleOutcomeHints(request, executionPlan, hasExecutionPlan, contract, contract.SelectedEvidenceHints)
 		contract.RequiredEvidenceTools = appendUniqueStrings(contract.RequiredEvidenceTools, selectedEvidenceToolsForRequestContinuation(request, contract, selectedEvidenceHints)...)
 		contract.RequiredEvidenceTools = appendUniqueStrings(contract.RequiredEvidenceTools, requiredSendEvidenceToolsForContract(request.ToolSet, contract)...)
-		contract.RequiredEffects = appendOutcomeEffects(contract.RequiredEffects, requiredWorkflowEffectRequirementsForRequest(request)...)
+		contract.RequiredEffects = normalizeOutcomeEffects(contract.RequiredEffects)
 		if strings.TrimSpace(contract.ArtifactRequirement) == "" || contract.ArtifactRequirement == ArtifactRequirementNone {
 			contract.ArtifactRequirement = artifactRequirementForOutcomeContract(intakeDecision, contract)
 		}
@@ -265,7 +265,7 @@ func outcomeContractForRequest(request AgentRequest, intakeDecision IntakeDecisi
 			contract.RequiredEvidenceAnyOf = append(contract.RequiredEvidenceAnyOf, evidenceGroup)
 		}
 	}
-	contract.RequiredEffects = appendOutcomeEffects(contract.RequiredEffects, requiredWorkflowEffectRequirementsForRequest(request)...)
+	contract.RequiredEffects = normalizeOutcomeEffects(contract.RequiredEffects)
 	contract.SelectedEvidenceHints = filterStaleOutcomeHints(request, executionPlan, hasExecutionPlan, contract, contract.SelectedEvidenceHints)
 	if len(requiredAttachmentSuffixes) > 0 {
 		contract.RequiredEvidenceTools = appendUniqueStrings(contract.RequiredEvidenceTools, toolcontract.FileDeliverToolName)

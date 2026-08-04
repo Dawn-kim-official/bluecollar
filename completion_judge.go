@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	completionJudgeSchemaName           = "blueclaw_completion_judge"
+	completionJudgeSchemaName           = "bluecollar_completion_judge"
 	completionJudgeMaxMissingWork       = 5
 	completionJudgeMissingWorkMaxLength = 200
 	completionJudgeReasonMaxLength      = 400

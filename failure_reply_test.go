@@ -84,7 +84,7 @@ func TestAgentTurnRunnerRepairsInvalidFailureReply(t *testing.T) {
 func assertRecoveryDecisionTokenBudget(t *testing.T, requests []model.StructuredResponseRequest) {
 	t.Helper()
 	for _, request := range requests {
-		if request.StructuredOutputSchema.Name != "blueclaw_recovery_decision" {
+		if request.StructuredOutputSchema.Name != "bluecollar_recovery_decision" {
 			continue
 		}
 		if request.GenerationOptions.MaxTokens == nil || *request.GenerationOptions.MaxTokens != recoveryDecisionMaxTokens {

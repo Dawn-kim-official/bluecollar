@@ -427,7 +427,7 @@ func buildAgentActionRequest(state agentTaskState, includeToolDescription bool) 
 	return model.StructuredResponseRequest{
 		Messages: messages,
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_agent_turn_action",
+			Name:               "bluecollar_agent_turn_action",
 			Document:           actionSchemaForToolSet(modelToolSet, allowQualityCriteria, blockedToolNames, hasFailureDebt, allowFail, allowFinish),
 			IsStrictlyEnforced: true,
 		},

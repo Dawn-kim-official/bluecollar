@@ -114,7 +114,7 @@ func TestAgentKernelSelectsArtifactSkillOnceAfterRouting(t *testing.T) {
 	}
 	skillQueryCount := 0
 	for _, request := range intakeLanguageModel.requests {
-		if request.StructuredOutputSchema.Name == "blueclaw_skill_search_queries" {
+		if request.StructuredOutputSchema.Name == "bluecollar_skill_search_queries" {
 			skillQueryCount++
 		}
 	}

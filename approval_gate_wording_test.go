@@ -60,7 +60,7 @@ func TestHeldCallConfirmationWordingAsksModelForDeclarativeDraft(t *testing.T) {
 	if len(languageModel.requests) != 1 {
 		t.Fatalf("expected one approval-question model call, got %d", len(languageModel.requests))
 	}
-	if languageModel.requests[0].StructuredOutputSchema.Name != "blueclaw_approval_question" {
+	if languageModel.requests[0].StructuredOutputSchema.Name != "bluecollar_approval_question" {
 		t.Fatalf("expected approval question schema, got %q", languageModel.requests[0].StructuredOutputSchema.Name)
 	}
 }

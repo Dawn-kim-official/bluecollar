@@ -82,7 +82,7 @@ func (skillSearchQueryRouter SkillSearchQueryRouter) generateContractSkillArbitr
 	response, errorValue := skillSearchQueryRouter.languageModel.GenerateStructuredResponse(ctx, model.StructuredResponseRequest{
 		Messages: messages,
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_contract_skill_arbitration",
+			Name:               "bluecollar_contract_skill_arbitration",
 			Document:           schema,
 			IsStrictlyEnforced: true,
 		},

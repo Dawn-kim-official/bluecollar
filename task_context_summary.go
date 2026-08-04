@@ -323,7 +323,7 @@ func (agentTurnRunner *AgentTurnRunner) generateTaskContextSummary(ctx context.C
 			Content: taskContextSummaryInput(request, currentSummary, observations),
 		}},
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_task_context_summary",
+			Name:               "bluecollar_task_context_summary",
 			Document:           taskContextSummarySchema(),
 			IsStrictlyEnforced: true,
 		},

@@ -11,8 +11,8 @@ import (
 )
 
 const llmCallErrorMaximumCharacters = 300
-const TurnRouterSchemaName = "blueclaw_turn_router"
-const AgentActionSchemaName = "blueclaw_agent_turn_action"
+const TurnRouterSchemaName = "bluecollar_turn_router"
+const AgentActionSchemaName = "bluecollar_agent_turn_action"
 
 type LLMCallRecord struct {
 	Kind                   string                                   `json:"kind"`

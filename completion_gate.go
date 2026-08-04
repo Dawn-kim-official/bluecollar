@@ -47,7 +47,7 @@ const (
 	evidenceKindAttachment       = "attachment_missing"
 	evidenceKindAttachmentValid  = "attachment_invalid"
 	evidenceKindReference        = "evidence_reference_invalid"
-	completionReplySchemaName    = "blueclaw_completion_reply"
+	completionReplySchemaName    = "bluecollar_completion_reply"
 	completionPersistenceTimeout = 5 * time.Second
 )
 

@@ -149,7 +149,7 @@ func turnRouterRequest(request agentcontract.AgentRequest, messages []model.Mess
 		Messages:          messages,
 		GenerationOptions: model.GenerationOptions{MaxTokens: &maxTokens},
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_turn_router",
+			Name:               "bluecollar_turn_router",
 			Document:           turnRouterSchema(request),
 			IsStrictlyEnforced: true,
 		},

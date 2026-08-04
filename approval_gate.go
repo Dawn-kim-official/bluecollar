@@ -342,7 +342,7 @@ func (agentTurnRunner *AgentTurnRunner) generateHeldCallConfirmationWording(ctx 
 			{Role: "user", Content: string(contextDocumentBytes)},
 		},
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_approval_question",
+			Name:               "bluecollar_approval_question",
 			Document:           `{"type":"object","properties":{"question":{"type":"string"}},"required":["question"],"additionalProperties":false}`,
 			IsStrictlyEnforced: true,
 		},

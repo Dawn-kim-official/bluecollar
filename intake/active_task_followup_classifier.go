@@ -57,7 +57,7 @@ func activeTaskFollowUpClassificationMessages(request agentcontract.ActiveTaskFo
 
 func activeTaskFollowUpClassificationSchema() model.StructuredOutputSchema {
 	return model.StructuredOutputSchema{
-		Name:               "blueclaw_active_task_followup",
+		Name:               "bluecollar_active_task_followup",
 		Document:           `{"type":"object","properties":{"relatesToActiveTask":{"type":"boolean"}},"required":["relatesToActiveTask"],"additionalProperties":false}`,
 		IsStrictlyEnforced: true,
 	}

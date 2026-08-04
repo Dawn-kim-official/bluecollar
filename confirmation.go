@@ -38,7 +38,7 @@ func (agentKernel *AgentKernel) BuildExecutionPlan(responseContext context.Conte
 		model.StructuredResponseRequest{
 			Messages: confirmationPlanMessages(request, requiredEvidenceTools),
 			StructuredOutputSchema: model.StructuredOutputSchema{
-				Name:               "blueclaw_execution_plan",
+				Name:               "bluecollar_execution_plan",
 				Document:           executionPlanSchema(),
 				IsStrictlyEnforced: true,
 			},
@@ -102,7 +102,7 @@ func (agentKernel *AgentKernel) generateConfirmationUserMessage(responseContext 
 				}, "\n")},
 			},
 			StructuredOutputSchema: model.StructuredOutputSchema{
-				Name:               "blueclaw_confirmation_message",
+				Name:               "bluecollar_confirmation_message",
 				Document:           `{"type":"object","properties":{"reply":{"type":"string"}},"required":["reply"],"additionalProperties":false}`,
 				IsStrictlyEnforced: true,
 			},
@@ -133,7 +133,7 @@ func (agentKernel *AgentKernel) ResolveChoiceReply(responseContext context.Conte
 		model.StructuredResponseRequest{
 			Messages: choiceReplyMessages(request),
 			StructuredOutputSchema: model.StructuredOutputSchema{
-				Name:               "blueclaw_choice_reply_decision",
+				Name:               "bluecollar_choice_reply_decision",
 				Document:           choiceReplySchema(request),
 				IsStrictlyEnforced: true,
 			},

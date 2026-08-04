@@ -97,7 +97,7 @@ func (agentTurnRunner *AgentTurnRunner) judgeCalendarDuplicate(ctx context.Conte
 	response, errorValue := agentTurnRunner.languageModel.GenerateStructuredResponse(ctx, model.StructuredResponseRequest{
 		Messages: calendarDuplicateJudgeMessages(addInput, existingEvents),
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_calendar_duplicate_judge",
+			Name:               "bluecollar_calendar_duplicate_judge",
 			Document:           calendarDuplicateJudgeSchema(),
 			IsStrictlyEnforced: true,
 		},

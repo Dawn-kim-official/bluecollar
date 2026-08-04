@@ -1821,7 +1821,7 @@ func (agentTurnRunner *AgentTurnRunner) finalizerAction(ctx context.Context, req
 	structuredResponse, errorValue := agentTurnRunner.languageModel.GenerateStructuredResponse(ctx, model.StructuredResponseRequest{
 		Messages: messages,
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_agent_turn_finalizer",
+			Name:               "bluecollar_agent_turn_finalizer",
 			Document:           finalizerActionSchema(),
 			IsStrictlyEnforced: true,
 		},
@@ -1869,7 +1869,7 @@ func (agentTurnRunner *AgentTurnRunner) terminalNoToolsAction(ctx context.Contex
 	structuredResponse, errorValue := agentTurnRunner.languageModel.GenerateStructuredResponse(ctx, model.StructuredResponseRequest{
 		Messages: messages,
 		StructuredOutputSchema: model.StructuredOutputSchema{
-			Name:               "blueclaw_agent_terminal_no_tools_action",
+			Name:               "bluecollar_agent_terminal_no_tools_action",
 			Document:           terminalNoToolsActionSchema(),
 			IsStrictlyEnforced: true,
 		},
@@ -2049,7 +2049,7 @@ func (agentTurnRunner *AgentTurnRunner) generateElapsedClosingReply(ctx context.
 	closingContext, cancelClosing := agentTurnRunner.elapsedClosingContext(ctx, request.EffortStartedAt)
 	defer cancelClosing()
 	response, errorValue := chatCompleter.GenerateChatCompletion(closingContext, model.ChatCompletionRequest{
-		SchemaName: "blueclaw_elapsed_reply",
+		SchemaName: "bluecollar_elapsed_reply",
 		Messages: []model.ChatCompletionMessage{{
 			Role:    "user",
 			Content: prompt,

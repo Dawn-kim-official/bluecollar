@@ -154,7 +154,7 @@ func addressingClassificationSchema() model.StructuredOutputSchema {
 	reactionEmojiProperty := `"reactionEmoji":{"type":"string","enum":` + addressingReactionEmojiEnumJSON() + `}`
 	document := `{"type":"object","properties":{"target":{"type":"string","enum":["bot","human","anyone","none","unclear"]},"shouldRespond":{"type":"boolean"},` + reactionEmojiProperty + `,"dutyMatch":{"type":"boolean"},"dutyName":{"type":"string"},"dutyConfidence":{"type":"number"}},"required":["target","shouldRespond","reactionEmoji","dutyMatch","dutyName","dutyConfidence"],"additionalProperties":false}`
 	return model.StructuredOutputSchema{
-		Name:               "blueclaw_addressing_classification",
+		Name:               "bluecollar_addressing_classification",
 		Document:           document,
 		IsStrictlyEnforced: true,
 	}
