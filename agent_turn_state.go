@@ -1093,10 +1093,14 @@ func qualityCriteriaForActionRequest(allowQualityCriteria bool) []qualityCriteri
 	return []qualityCriterion{{ID: "existing", Description: "existing criteria"}}
 }
 
+func isToolResultTaskEvent(event taskstate.TaskEvent) bool {
+	return strings.HasPrefix(event.Name, "tool.") && strings.HasSuffix(event.Name, ".result")
+}
+
 func observationsFromTaskEvents(events []taskstate.TaskEvent) []turnObservation {
 	observations := []turnObservation{}
 	for _, event := range events {
-		if !strings.HasPrefix(event.Name, "tool.") || !strings.HasSuffix(event.Name, ".result") {
+		if !isToolResultTaskEvent(event) {
 			continue
 		}
 		observation, errorValue := decodeTurnObservation([]byte(event.Body))

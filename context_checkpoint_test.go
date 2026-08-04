@@ -119,3 +119,73 @@ func TestTheCheckpointBookkeepingNeverReachesTheModel(t *testing.T) {
 	}
 }
 
+
+func TestASecondCheckpointInheritsWhatTheFirstAlreadyAccountedFor(t *testing.T) {
+	events := []taskstate.TaskEvent{
+		toolResultTaskEvent("event-1", "observation-1"),
+		toolResultTaskEvent("event-2", "observation-2"),
+		toolResultTaskEvent("event-3", "observation-3"),
+		toolResultTaskEvent("event-4", "observation-4"),
+		toolResultTaskEvent("event-5", "observation-5"),
+	}
+	secondPlan := taskContextCompactionPlan{
+		CompactableObservations:       []turnObservation{{ObservationID: "observation-4", Action: "continue", Tool: "note_write"}},
+		CompactedObservationIDs:       []string{"observation-4"},
+		CompactedThroughObservationID: "observation-4",
+	}
+	retainedByTheSecondCheckpoint := []turnObservation{
+		{ObservationID: "context-summary-observation-4", Action: "context_summary"},
+		{ObservationID: "observation-5", Action: "continue", Tool: "note_write"},
+	}
+
+	secondCheckpoint := summaryAccountingForCompactedObservations(
+		TaskContextSummary{ObservationID: "context-summary-observation-4"},
+		retainedContextCheckpoint(),
+		retainedByTheSecondCheckpoint,
+		secondPlan,
+		events,
+	)
+
+	for _, inheritedTaskEventID := range []string{"event-1", "event-2", "event-3"} {
+		if !stringSet(secondCheckpoint.AccountedTaskEventIDs)[inheritedTaskEventID] {
+			t.Fatalf("history the first checkpoint absorbed must not come back; %s is unaccounted in %v", inheritedTaskEventID, secondCheckpoint.AccountedTaskEventIDs)
+		}
+	}
+	if secondCheckpoint.CompactedObservationCount != 4 {
+		t.Fatalf("expected three inherited plus one newly compacted, got %d", secondCheckpoint.CompactedObservationCount)
+	}
+	if secondCheckpoint.CompactedToolCallCount != 4 {
+		t.Fatalf("expected three inherited plus one newly compacted tool call, got %d", secondCheckpoint.CompactedToolCallCount)
+	}
+}
+
+func TestRecompactingTheSameObservationDoesNotCountItTwice(t *testing.T) {
+	events := []taskstate.TaskEvent{
+		toolResultTaskEvent("event-1", "observation-1"),
+		toolResultTaskEvent("event-2", "observation-2"),
+		toolResultTaskEvent("event-3", "observation-3"),
+		toolResultTaskEvent("event-4", "observation-4"),
+	}
+	planRepeatingTheWholeHistory := taskContextCompactionPlan{
+		CompactableObservations: []turnObservation{
+			{ObservationID: "observation-1", Action: "continue", Tool: "note_write"},
+			{ObservationID: "observation-2", Action: "continue", Tool: "note_write"},
+			{ObservationID: "observation-3", Action: "continue", Tool: "note_write"},
+			{ObservationID: "observation-4", Action: "continue", Tool: "note_write"},
+		},
+		CompactedObservationIDs:       []string{"observation-1", "observation-2", "observation-3", "observation-4"},
+		CompactedThroughObservationID: "observation-4",
+	}
+
+	secondCheckpoint := summaryAccountingForCompactedObservations(
+		TaskContextSummary{ObservationID: "context-summary-observation-4"},
+		retainedContextCheckpoint(),
+		nil,
+		planRepeatingTheWholeHistory,
+		events,
+	)
+
+	if secondCheckpoint.CompactedObservationCount != 4 {
+		t.Fatalf("the warm path recompacts the whole history every time; expected 4, got %d", secondCheckpoint.CompactedObservationCount)
+	}
+}
