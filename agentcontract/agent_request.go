@@ -128,6 +128,7 @@ type AgentTurnRequest struct {
 	PinnedSkillNames             []string
 	WorkspaceRootPath            string
 	WorkspaceDefaultPath         string
+	WorkspaceGuidance            []string
 	ActivePaths                  []string
 	InstructionPrompt            string
 	InstructionSources           []InstructionSource
