@@ -5,8 +5,8 @@ import (
 	"github.com/Dawn-kim-official/bluecollar/toolcontract"
 	"testing"
 
-	"github.com/Dawn-kim-official/bluecollar/turnstream"
 	"github.com/Dawn-kim-official/bluecollar/taskstate"
+	"github.com/Dawn-kim-official/bluecollar/turnstream"
 )
 
 func continueWithMessageDocument(operationName string, message string) string {

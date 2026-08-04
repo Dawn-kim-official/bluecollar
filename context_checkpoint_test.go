@@ -120,7 +120,6 @@ func TestTheCheckpointBookkeepingNeverReachesTheModel(t *testing.T) {
 	}
 }
 
-
 func TestASecondCheckpointInheritsWhatTheFirstAlreadyAccountedFor(t *testing.T) {
 	events := []taskstate.TaskEvent{
 		toolResultTaskEvent("event-1", "observation-1"),
