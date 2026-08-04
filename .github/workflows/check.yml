@@ -3,7 +3,13 @@ name: check
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'assets/**', 'LICENSE']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'assets/**', 'LICENSE']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

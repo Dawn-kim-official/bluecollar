@@ -2,6 +2,12 @@
 
 # bluecollar
 
+> **Status: pre-alpha, under active development.** The exported API, the
+> contract types and the event names all still change without notice, and there
+> is no release, no versioning policy and no migration path between commits. It
+> is published so the design can be read and argued with, not so it can be
+> depended on. If you import it, pin a commit and expect to read diffs.
+
 An agent harness: the loop that takes a request, decides what to do, calls tools, and answers.
 
 bluecollar does not own tools, identity, or storage. It is handed a tool set and a task store by a
