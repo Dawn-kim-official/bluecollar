@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 
@@ -14,8 +15,9 @@ import (
 )
 
 type scriptedLanguageModel struct {
-	contents  []string
-	callCount int
+	contents      []string
+	callCount     int
+	actionPrompts []string
 }
 
 func (languageModel *scriptedLanguageModel) GenerateResponse(context.Context, string) (string, error) {
@@ -26,6 +28,7 @@ func (languageModel *scriptedLanguageModel) GenerateStructuredResponse(_ context
 	if request.StructuredOutputSchema.Name != "bluecollar_agent_turn_action" {
 		return model.StructuredResponse{Content: `{"route":"start_task","classification":"bounded_task","taskShape":"maintenance_task","level":"xlow","estimatedMinutes":1,"responseLanguage":"en","reason":"test"}`}, nil
 	}
+	languageModel.actionPrompts = append(languageModel.actionPrompts, allMessageContent(request))
 	if languageModel.callCount >= len(languageModel.contents) {
 		return model.StructuredResponse{Content: `{"action":"finish","message":"done","goalSatisfied":true}`}, nil
 	}
@@ -73,6 +76,12 @@ func (client *hostClient) SessionUpdate(_ context.Context, notification acp.Sess
 		client.ledger = append(client.ledger, record)
 	}
 	return nil
+}
+
+func (client *hostClient) keptLedger() []ledgerRecord {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	return append([]ledgerRecord{}, client.ledger...)
 }
 
 func (client *hostClient) ledgerEventNames() []string {
@@ -150,6 +159,11 @@ func (client *hostClient) WaitForTerminalExit(context.Context, acp.WaitForTermin
 
 func driveOneTurn(t *testing.T, catalogTransport mcp.Transport, languageModel *scriptedLanguageModel) (*hostClient, acp.PromptResponse) {
 	t.Helper()
+	return driveOneTurnWithMeta(t, catalogTransport, languageModel, nil)
+}
+
+func driveOneTurnWithMeta(t *testing.T, catalogTransport mcp.Transport, languageModel *scriptedLanguageModel, promptMeta map[string]any) (*hostClient, acp.PromptResponse) {
+	t.Helper()
 	agentInputReader, agentInputWriter := io.Pipe()
 	agentOutputReader, agentOutputWriter := io.Pipe()
 	runningAgent := newAgent(languageModel, "bluecollar")
@@ -172,6 +186,7 @@ func driveOneTurn(t *testing.T, catalogTransport mcp.Transport, languageModel *s
 	promptResponse, errorValue := connection.Prompt(t.Context(), acp.PromptRequest{
 		SessionId: newSession.SessionId,
 		Prompt:    []acp.ContentBlock{acp.TextBlock("회의록 정리해줘")},
+		Meta:      promptMeta,
 	})
 	if errorValue != nil {
 		t.Fatalf("session/prompt: %v", errorValue)
@@ -301,4 +316,51 @@ func TestACancelledTurnStopsCallingTools(t *testing.T) {
 	if len(hostCalls) >= len(languageModel.contents) {
 		t.Fatalf("a cancel that arrives mid-turn has to stop the tools, the script ran all %d of them", len(hostCalls))
 	}
+}
+
+func publishedCatalogTransport(t *testing.T, calls *[]hostToolCall) mcp.Transport {
+	t.Helper()
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	go publishedCatalog(t, calls).Run(t.Context(), serverTransport)
+	return clientTransport
+}
+
+func TestAHostHandsBackTheLedgerItKept(t *testing.T) {
+	hostCalls := []hostToolCall{}
+
+	firstHost, _ := driveOneTurn(t, publishedCatalogTransport(t, &hostCalls), &scriptedLanguageModel{contents: []string{
+		`{"action":"continue","toolName":"note_write","toolInput":{"text":"회의록"}}`,
+		`{"action":"finish","message":"노트를 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
+	}})
+	keptLedger := firstHost.keptLedger()
+	callsBeforeResume := len(hostCalls)
+
+	resumedLanguageModel := &scriptedLanguageModel{contents: []string{
+		`{"action":"finish","message":"이미 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
+	}}
+	driveOneTurnWithMeta(t, publishedCatalogTransport(t, &hostCalls), resumedLanguageModel, map[string]any{ledgerMetaKey: keptLedger})
+
+	if !containsSubstring(resumedLanguageModel.actionPrompts, "note written") {
+		t.Fatalf("a turn resumed on a ledger the host kept has to see what already ran, got prompts %d", len(resumedLanguageModel.actionPrompts))
+	}
+	if len(hostCalls) != callsBeforeResume {
+		t.Fatalf("a turn handed the ledger of what already ran must not run it again, got %d against %d", len(hostCalls), callsBeforeResume)
+	}
+}
+
+func allMessageContent(request model.StructuredResponseRequest) string {
+	segments := []string{}
+	for _, message := range request.Messages {
+		segments = append(segments, message.Content)
+	}
+	return strings.Join(segments, "\n")
+}
+
+func containsSubstring(values []string, wanted string) bool {
+	for _, value := range values {
+		if strings.Contains(value, wanted) {
+			return true
+		}
+	}
+	return false
 }

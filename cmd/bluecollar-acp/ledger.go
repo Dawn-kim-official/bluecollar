@@ -101,3 +101,33 @@ func isFailureEvent(body string) bool {
 	}{}
 	return json.Unmarshal([]byte(body), &decoded) == nil && decoded.Failure != nil
 }
+
+func replayLedger(openSession *session, promptMeta map[string]any) bool {
+	records, isPresent := ledgerRecordsOfMeta(promptMeta)
+	if !isPresent || len(records) == 0 {
+		return false
+	}
+	taskRun := openSession.taskRuns.CreateTaskRunWithOrigin(requesterPersonID, taskstate.TaskRunOrigin{}, "")
+	openSession.taskRuns.AdvanceTaskRun(taskRun.TaskRunID, "")
+	for _, record := range records {
+		openSession.taskRuns.AppendTaskEvent(taskRun.TaskRunID, record.Name, string(record.Body))
+	}
+	openSession.rememberTaskRun(taskRun.TaskRunID)
+	return true
+}
+
+func ledgerRecordsOfMeta(promptMeta map[string]any) ([]ledgerRecord, bool) {
+	value, isPresent := promptMeta[ledgerMetaKey]
+	if !isPresent {
+		return nil, false
+	}
+	encoded, errorValue := json.Marshal(value)
+	if errorValue != nil {
+		return nil, false
+	}
+	records := []ledgerRecord{}
+	if json.Unmarshal(encoded, &records) != nil {
+		return nil, false
+	}
+	return records, true
+}
