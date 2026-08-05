@@ -7,3 +7,4 @@
 !.env.example
 *.pem
 *.key
+/cmd/bluecollar-acp/bluecollar-acp
