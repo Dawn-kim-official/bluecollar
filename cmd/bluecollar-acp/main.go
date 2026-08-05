@@ -22,7 +22,9 @@ func main() {
 	flag.Parse()
 
 	languageModel := openaicompatible.NewProvider(*endpointURL, *apiKey, *modelName)
-	connection := acp.NewAgentSideConnection(newAgent(languageModel, *agentName), os.Stdout, os.Stdin)
+	runningAgent := newAgent(languageModel, *agentName)
+	connection := acp.NewAgentSideConnection(runningAgent, os.Stdout, os.Stdin)
+	runningAgent.sessionUpdates = connection
 	<-connection.Done()
 }
 

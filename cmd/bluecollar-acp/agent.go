@@ -16,16 +16,18 @@ import (
 )
 
 type session struct {
-	catalog   *catalog
-	taskRunID string
-	kernel    *bluecollar.AgentKernel
-	taskRuns  *taskstate.TaskRunService
+	catalog    *catalog
+	taskRunID  string
+	kernel     *bluecollar.AgentKernel
+	taskRuns   *taskstate.TaskRunService
+	taskEvents *taskstate.TaskEventService
 }
 
 type agent struct {
 	languageModel    model.LanguageModelProvider
 	agentName        string
 	resolveTransport transportResolver
+	sessionUpdates   sessionUpdateSender
 
 	mutex             sync.Mutex
 	sessionsByID      map[acp.SessionId]*session
@@ -55,7 +57,8 @@ func (runningAgent *agent) NewSession(ctx context.Context, request acp.NewSessio
 	if errorValue != nil {
 		return acp.NewSessionResponse{}, errorValue
 	}
-	taskRuns := taskstate.NewTaskRunService(taskstate.NewTaskEventService())
+	taskEvents := taskstate.NewTaskEventService()
+	taskRuns := taskstate.NewTaskRunService(taskEvents)
 	kernel := bluecollar.NewAgentKernel(taskRuns, taskstate.NewTaskStepService())
 	kernel.UseLanguageModelProvider(runningAgent.languageModel)
 
@@ -64,9 +67,10 @@ func (runningAgent *agent) NewSession(ctx context.Context, request acp.NewSessio
 	runningAgent.nextSessionNumber++
 	sessionID := acp.SessionId("bluecollar-" + strconv.Itoa(runningAgent.nextSessionNumber))
 	runningAgent.sessionsByID[sessionID] = &session{
-		catalog:  openedCatalog,
-		kernel:   kernel,
-		taskRuns: taskRuns,
+		catalog:    openedCatalog,
+		kernel:     kernel,
+		taskRuns:   taskRuns,
+		taskEvents: taskEvents,
 	}
 	return acp.NewSessionResponse{SessionId: sessionID}, nil
 }
@@ -85,6 +89,11 @@ func (runningAgent *agent) Prompt(ctx context.Context, request acp.PromptRequest
 		ToolSet:           openSession.catalog.toolSet,
 		PinnedToolNames:   openSession.catalog.toolNames,
 	}
+	stopObserving := openSession.taskEvents.RegisterTurnObserver(func(rawTurnEvent taskstate.RawTurnEvent) {
+		sendLedgerEvent(ctx, runningAgent.sessionUpdates, request.SessionId, rawTurnEvent)
+	})
+	defer stopObserving()
+
 	turnDecision, errorValue := runningAgent.routeTurn(ctx, turnRequest)
 	if errorValue != nil {
 		return acp.PromptResponse{}, errorValue
