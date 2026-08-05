@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 type PromptAssembler struct{}

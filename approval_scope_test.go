@@ -3,7 +3,7 @@ package bluecollar
 import (
 	"testing"
 
-	"github.com/Dawn-kim-official/bluecollar/taskstate"
+	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
 
 // A tool that names an approval family is approved once for the task. A tool that

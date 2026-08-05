@@ -2,7 +2,7 @@ package bluecollar
 
 import (
 	"fmt"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"strings"
 	"time"
 )

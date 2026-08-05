@@ -3,7 +3,7 @@ package agentcontract
 import (
 	"context"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 type staticReplyProvider struct {

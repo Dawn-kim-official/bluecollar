@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 const llmCallErrorMaximumCharacters = 300

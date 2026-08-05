@@ -3,7 +3,7 @@ package agentcontract
 import (
 	"strings"
 
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
 
 func NormalizeIntakeOptions(options IntakeOptions) IntakeOptions {

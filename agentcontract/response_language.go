@@ -1,6 +1,6 @@
 package agentcontract
 
-import "github.com/Dawn-kim-official/bluecollar/toolcontract"
+import "github.com/yeomyeonggeori/bluecollar/toolcontract"
 
 func ResponseLanguageInstruction(responseLanguage string) string {
 	switch toolcontract.ResolveResponseLanguage(responseLanguage) {

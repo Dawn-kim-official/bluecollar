@@ -3,7 +3,7 @@ package bluecollar
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"os"
 	"path/filepath"
 	"testing"

@@ -3,7 +3,7 @@ package bluecollar
 import (
 	"context"
 	"errors"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"strings"
 	"testing"
 )

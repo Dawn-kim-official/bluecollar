@@ -1,8 +1,8 @@
 package bluecollar
 
 import (
-	"github.com/Dawn-kim-official/bluecollar/agentcontract"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
 
 var _ agentcontract.Harness = (*AgentKernel)(nil)

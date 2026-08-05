@@ -1,12 +1,12 @@
 package bluecollar
 
 import (
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 func TestPromptAssemblerIncludesTemporalContext(t *testing.T) {

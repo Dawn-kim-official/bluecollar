@@ -2,11 +2,11 @@ package bluecollar
 
 import (
 	"context"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"testing"
 
-	"github.com/Dawn-kim-official/bluecollar/taskstate"
-	"github.com/Dawn-kim-official/bluecollar/turnstream"
+	"github.com/yeomyeonggeori/bluecollar/taskstate"
+	"github.com/yeomyeonggeori/bluecollar/turnstream"
 )
 
 func continueWithMessageDocument(operationName string, message string) string {
