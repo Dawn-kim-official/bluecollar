@@ -3,8 +3,8 @@ package harnesstest
 import (
 	"context"
 
-	"github.com/Dawn-kim-official/bluecollar/agentcontract"
-	"github.com/Dawn-kim-official/bluecollar/taskstate"
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
+	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
 
 // Harness answers the agent harness port with canned decisions so host tests

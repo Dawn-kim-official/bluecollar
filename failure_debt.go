@@ -2,7 +2,7 @@ package bluecollar
 
 import (
 	"encoding/json"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"path/filepath"
 	"strings"
 )

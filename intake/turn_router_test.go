@@ -3,14 +3,14 @@ package intake
 import (
 	"context"
 	"errors"
-	"github.com/Dawn-kim-official/bluecollar/agentcontract"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 func mustNormalizeTurn(t *testing.T, router TurnRouter, decision agentcontract.TurnDecision, request agentcontract.AgentRequest) agentcontract.TurnDecision {

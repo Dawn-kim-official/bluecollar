@@ -3,7 +3,7 @@ package bluecollar
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"strings"
 )
 

@@ -3,7 +3,7 @@ package bluecollar
 import (
 	"encoding/json"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 type ProbedAgentAction struct {

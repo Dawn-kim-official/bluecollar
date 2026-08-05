@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/intake"
+	"github.com/yeomyeonggeori/bluecollar/intake"
 )
 
 const routedRequestRoutingTimeout = 30 * time.Second
