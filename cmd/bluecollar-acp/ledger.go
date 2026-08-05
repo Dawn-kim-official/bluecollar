@@ -6,10 +6,14 @@ import (
 	"strings"
 
 	acp "github.com/coder/acp-go-sdk"
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
 
-const ledgerMetaKey = "bluecollar.dev/ledger"
+const (
+	ledgerMetaKey         = "bluecollar.dev/ledger"
+	carriedOutCallMetaKey = "bluecollar.dev/carried-out"
+)
 
 type ledgerRecord struct {
 	Name string          `json:"name"`
@@ -130,4 +134,20 @@ func ledgerRecordsOfMeta(promptMeta map[string]any) ([]ledgerRecord, bool) {
 		return nil, false
 	}
 	return records, true
+}
+
+func carriedOutCallsOfMeta(promptMeta map[string]any) []agentcontract.CarriedOutCall {
+	value, isPresent := promptMeta[carriedOutCallMetaKey]
+	if !isPresent {
+		return nil
+	}
+	encoded, errorValue := json.Marshal(value)
+	if errorValue != nil {
+		return nil
+	}
+	carriedOutCalls := []agentcontract.CarriedOutCall{}
+	if json.Unmarshal(encoded, &carriedOutCalls) != nil {
+		return nil
+	}
+	return carriedOutCalls
 }

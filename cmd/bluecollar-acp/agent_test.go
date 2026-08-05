@@ -10,8 +10,10 @@ import (
 
 	acp "github.com/coder/acp-go-sdk"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/model"
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
 
 type scriptedLanguageModel struct {
@@ -363,4 +365,26 @@ func containsSubstring(values []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+func TestAHostSaysWhatItCarriedOutAndTheTurnSeesIt(t *testing.T) {
+	hostCalls := []hostToolCall{}
+	languageModel := &scriptedLanguageModel{contents: []string{
+		`{"action":"finish","message":"이미 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
+	}}
+
+	driveOneTurnWithMeta(t, publishedCatalogTransport(t, &hostCalls), languageModel, map[string]any{
+		carriedOutCallMetaKey: []agentcontract.CarriedOutCall{{
+			ToolName:  "note_write",
+			ToolInput: json.RawMessage(`{"text":"회의록"}`),
+			Result:    toolcontract.ToolSuccessData("note written by the host", json.RawMessage(`{}`)),
+		}},
+	})
+
+	if !containsSubstring(languageModel.actionPrompts, "note written by the host") {
+		t.Fatal("a call the host carried out has to reach the model, or it asks for the same thing again")
+	}
+	if len(hostCalls) != 0 {
+		t.Fatalf("the host already ran it, so the agent must not run it again, got %+v", hostCalls)
+	}
 }

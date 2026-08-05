@@ -291,6 +291,7 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 	}
 	toolUseRequirements := state.Requirements
 	successfulToolCalls := map[string]turnObservation{}
+	agentTurnRunner.recordCarriedOutCalls(workContext, taskRun.TaskRunID, request, &state, successfulToolCalls)
 	if request.IsApprovalContinuation {
 		var approvedResult AgentTurnResult
 		var shouldReturn bool
@@ -2182,4 +2183,24 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func (agentTurnRunner *AgentTurnRunner) recordCarriedOutCalls(ctx context.Context, taskRunID string, request AgentTurnRequest, state *agentTaskState, successfulToolCalls map[string]turnObservation) {
+	for _, carriedOutCall := range request.CarriedOutCalls {
+		toolName := strings.TrimSpace(carriedOutCall.ToolName)
+		if toolName == "" {
+			continue
+		}
+		observationID := nextObservationIDForObservations(state.Observations)
+		observation := agentTurnRunner.saveToolObservation(
+			ctx, taskRunID, observationID, toolName, "", carriedOutCall.ToolInput, toolName,
+			canonicalToolInput(carriedOutCall.ToolInput), carriedOutCall.Result,
+			false, request.WorkspaceRootPath, time.Time{}, 0,
+		)
+		agentTurnRunner.recordToolObservation(taskRunID, state, turnActionDocument{
+			Action:    "continue",
+			ToolName:  toolName,
+			ToolInput: carriedOutCall.ToolInput,
+		}, successfulToolCalls, observation, "")
+	}
 }

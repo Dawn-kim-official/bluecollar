@@ -91,6 +91,7 @@ func (runningAgent *agent) Prompt(ctx context.Context, request acp.PromptRequest
 		AgentIdentity:          agentcontract.AgentIdentity{Name: runningAgent.agentName},
 		ToolSet:                openSession.catalog.toolSet,
 		PinnedToolNames:        openSession.catalog.toolNames,
+		CarriedOutCalls:        carriedOutCallsOfMeta(request.Meta),
 	}
 	stopObserving := openSession.taskEvents.RegisterTurnObserver(func(rawTurnEvent taskstate.RawTurnEvent) {
 		openSession.rememberTaskRun(rawTurnEvent.TaskRunID)

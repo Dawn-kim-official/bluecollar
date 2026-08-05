@@ -145,6 +145,7 @@ func (agentKernel *AgentKernel) RunTurn(responseContext context.Context, request
 		AmbientDuty:                request.AmbientDuty,
 		TaskLevel:                  request.TaskLevel,
 		TurnStartedAt:              request.TurnStartedAt,
+		CarriedOutCalls:            request.CarriedOutCalls,
 		CheckpointSender:           request.CheckpointSender,
 	})
 }
@@ -388,6 +389,7 @@ func (agentKernel *AgentKernel) RunAgentRequest(responseContext context.Context,
 		EffortStartedAt:            request.TurnStartedAt,
 		TurnAnchorClamped:          taskBudget.didClampAnchor,
 		OriginalTurnStartedAt:      taskBudget.originalTurnStartedAt,
+		CarriedOutCalls:            request.CarriedOutCalls,
 		CheckpointSender:           request.CheckpointSender,
 	}
 	agentTurnRunner := NewAgentTurnRunnerWithRecoveryModel(
