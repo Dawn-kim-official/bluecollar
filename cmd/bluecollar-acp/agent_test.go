@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
-	"strings"
+	"sync"
 	"testing"
 
 	acp "github.com/coder/acp-go-sdk"
@@ -53,12 +54,70 @@ func publishedCatalog(t *testing.T, calls *[]hostToolCall) *mcp.Server {
 }
 
 type hostClient struct {
+	mutex        sync.Mutex
 	agentMessage string
+	ledger       []ledgerRecord
+	toolCalls    []acp.ToolCallId
 }
 
 func (client *hostClient) SessionUpdate(_ context.Context, notification acp.SessionNotification) error {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
 	if chunk := notification.Update.AgentMessageChunk; chunk != nil && chunk.Content.Text != nil {
 		client.agentMessage += chunk.Content.Text.Text
+	}
+	if toolCall := notification.Update.ToolCall; toolCall != nil {
+		client.toolCalls = append(client.toolCalls, toolCall.ToolCallId)
+	}
+	if record, isLedgerEvent := ledgerRecordOfMeta(notification.Update); isLedgerEvent {
+		client.ledger = append(client.ledger, record)
+	}
+	return nil
+}
+
+func (client *hostClient) ledgerEventNames() []string {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	names := []string{}
+	for _, record := range client.ledger {
+		names = append(names, record.Name)
+	}
+	return names
+}
+
+func ledgerRecordOfMeta(update acp.SessionUpdate) (ledgerRecord, bool) {
+	for _, meta := range []map[string]any{
+		metaOf(update.ToolCall), metaOf(update.ToolCallUpdate), metaOf(update.AgentThoughtChunk),
+	} {
+		if meta == nil {
+			continue
+		}
+		encoded, errorValue := json.Marshal(meta[ledgerMetaKey])
+		if errorValue != nil {
+			continue
+		}
+		record := ledgerRecord{}
+		if json.Unmarshal(encoded, &record) == nil && record.Name != "" {
+			return record, true
+		}
+	}
+	return ledgerRecord{}, false
+}
+
+func metaOf(update any) map[string]any {
+	switch typedUpdate := update.(type) {
+	case *acp.SessionUpdateToolCall:
+		if typedUpdate != nil {
+			return typedUpdate.Meta
+		}
+	case *acp.SessionToolCallUpdate:
+		if typedUpdate != nil {
+			return typedUpdate.Meta
+		}
+	case *acp.SessionUpdateAgentThoughtChunk:
+		if typedUpdate != nil {
+			return typedUpdate.Meta
+		}
 	}
 	return nil
 }
@@ -89,24 +148,16 @@ func (client *hostClient) WaitForTerminalExit(context.Context, acp.WaitForTermin
 	return acp.WaitForTerminalExitResponse{}, io.ErrUnexpectedEOF
 }
 
-func TestAHostDrivesTheLoopOverACPAndItsToolsComeFromTheCatalog(t *testing.T) {
-	hostCalls := []hostToolCall{}
-	catalogServer := publishedCatalog(t, &hostCalls)
-	catalogClientTransport, catalogServerTransport := mcp.NewInMemoryTransports()
-	go catalogServer.Run(t.Context(), catalogServerTransport)
-
-	languageModel := &scriptedLanguageModel{contents: []string{
-		`{"action":"continue","toolName":"note_write","toolInput":{"text":"회의록"}}`,
-		`{"action":"finish","message":"노트를 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
-	}}
-
+func driveOneTurn(t *testing.T, catalogTransport mcp.Transport, languageModel *scriptedLanguageModel) (*hostClient, acp.PromptResponse) {
+	t.Helper()
 	agentInputReader, agentInputWriter := io.Pipe()
 	agentOutputReader, agentOutputWriter := io.Pipe()
 	runningAgent := newAgent(languageModel, "bluecollar")
-	runningAgent.resolveTransport = func(acp.McpServer) (mcp.Transport, error) { return catalogClientTransport, nil }
+	runningAgent.resolveTransport = func(acp.McpServer) (mcp.Transport, error) { return catalogTransport, nil }
 	go func() {
-		connection := acp.NewAgentSideConnection(runningAgent, agentOutputWriter, agentInputReader)
-		<-connection.Done()
+		agentConnection := acp.NewAgentSideConnection(runningAgent, agentOutputWriter, agentInputReader)
+		runningAgent.sessionUpdates = agentConnection
+		<-agentConnection.Done()
 	}()
 
 	host := &hostClient{}
@@ -125,33 +176,26 @@ func TestAHostDrivesTheLoopOverACPAndItsToolsComeFromTheCatalog(t *testing.T) {
 	if errorValue != nil {
 		t.Fatalf("session/prompt: %v", errorValue)
 	}
+	return host, promptResponse
+}
+
+func TestAHostDrivesTheLoopOverACPAndItsToolsComeFromTheCatalog(t *testing.T) {
+	hostCalls := []hostToolCall{}
+	catalogServer := publishedCatalog(t, &hostCalls)
+	catalogClientTransport, catalogServerTransport := mcp.NewInMemoryTransports()
+	go catalogServer.Run(t.Context(), catalogServerTransport)
+
+	_, promptResponse := driveOneTurn(t, catalogClientTransport, &scriptedLanguageModel{contents: []string{
+		`{"action":"continue","toolName":"note_write","toolInput":{"text":"회의록"}}`,
+		`{"action":"finish","message":"노트를 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
+	}})
 
 	if promptResponse.StopReason == "" {
 		t.Fatal("the host has to learn how the turn ended")
 	}
 	if len(hostCalls) != 1 || hostCalls[0].toolName != "note_write" {
-		t.Fatalf("the loop owns no tools, so the work has to land on the host's catalog, got %+v\n%s", hostCalls, ledgerOf(runningAgent, newSession.SessionId))
+		t.Fatalf("the loop owns no tools, so the work has to land on the host's catalog, got %+v", hostCalls)
 	}
-}
-
-func ledgerOf(runningAgent *agent, sessionID acp.SessionId) string {
-	openSession, isKnown := runningAgent.session(sessionID)
-	if !isKnown {
-		return "(no session)"
-	}
-	lines := []string{}
-	for _, taskEvent := range openSession.taskRuns.ListTaskEvent(openSession.taskRunID) {
-		lines = append(lines, "  "+taskEvent.Name+"  "+truncate(taskEvent.Body, 200))
-	}
-	return strings.Join(lines, "\n")
-}
-
-func truncate(text string, limit int) string {
-	collapsed := strings.Join(strings.Fields(text), " ")
-	if len(collapsed) <= limit {
-		return collapsed
-	}
-	return collapsed[:limit] + "…"
 }
 
 func TestTheLoopsVerdictReachesTheHostAsAStopReason(t *testing.T) {
@@ -164,4 +208,35 @@ func TestTheLoopsVerdictReachesTheHostAsAStopReason(t *testing.T) {
 			t.Fatalf("a task the loop left %q reaches the host as %q, expected %q", status, stopReason, expectedStopReason)
 		}
 	}
+}
+
+func TestTheHostSeesTheLoopsLedgerWithoutBeingInsideIt(t *testing.T) {
+	hostCalls := []hostToolCall{}
+	catalogServer := publishedCatalog(t, &hostCalls)
+	catalogClientTransport, catalogServerTransport := mcp.NewInMemoryTransports()
+	go catalogServer.Run(t.Context(), catalogServerTransport)
+
+	host, _ := driveOneTurn(t, catalogClientTransport, &scriptedLanguageModel{contents: []string{
+		`{"action":"continue","toolName":"note_write","toolInput":{"text":"회의록"}}`,
+		`{"action":"finish","message":"노트를 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
+	}})
+
+	ledgerNames := host.ledgerEventNames()
+	for _, expectedEventName := range []string{"agent.action", "tool.note_write.requested", "tool.note_write.result"} {
+		if !containsString(ledgerNames, expectedEventName) {
+			t.Fatalf("a host outside the agent process still owns the ledger, so %q has to reach it; got %+v", expectedEventName, ledgerNames)
+		}
+	}
+	if len(host.toolCalls) == 0 {
+		t.Fatal("a generic ACP client renders tool calls from the standard update, so one has to be sent alongside the ledger record")
+	}
+}
+
+func containsString(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
