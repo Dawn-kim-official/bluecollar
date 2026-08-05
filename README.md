@@ -120,7 +120,9 @@ go test -run 'Checkpoint|Resume|Approval' -v .
   `cmd/bluecollar-acp` takes its tool set from the MCP servers the host names when it opens a
   session, so a host that publishes a catalog gives the loop everything it can do. The event
   ledger reaches that host on `session/update`: tool calls as the standard variants a generic
-  client renders, every event's name and body in the `_meta` a co-designed one reads.
+  client renders, every event's name and body in the `_meta` a co-designed one reads. A host that
+  kept those records hands them back in `PromptRequest._meta`, and the turn resumes on the work
+  they describe.
 - An interactive terminal front end, and none is planned here. `cmd/bluecollar` prints a ledger and
   exits; the interface belongs to whichever host embeds the loop.
 - Native multi-step tool calling. The loop currently forces one structured action per step, which

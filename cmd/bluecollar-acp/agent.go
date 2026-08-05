@@ -81,14 +81,16 @@ func (runningAgent *agent) Prompt(ctx context.Context, request acp.PromptRequest
 	if !isKnown {
 		return acp.PromptResponse{}, errors.New("bluecollar has no session by that id; open one with session/new first")
 	}
+	isResumedFromHostLedger := replayLedger(openSession, request.Meta)
 	turnRequest := agentcontract.AgentTurnRequest{
-		RequesterPersonID: requesterPersonID,
-		ConversationID:    string(request.SessionId),
-		ExistingTaskRunID: openSession.currentTaskRunID(),
-		Prompt:            promptText(request.Prompt),
-		AgentIdentity:     agentcontract.AgentIdentity{Name: runningAgent.agentName},
-		ToolSet:           openSession.catalog.toolSet,
-		PinnedToolNames:   openSession.catalog.toolNames,
+		RequesterPersonID:      requesterPersonID,
+		IsRuntimeRestartResume: isResumedFromHostLedger,
+		ConversationID:         string(request.SessionId),
+		ExistingTaskRunID:      openSession.currentTaskRunID(),
+		Prompt:                 promptText(request.Prompt),
+		AgentIdentity:          agentcontract.AgentIdentity{Name: runningAgent.agentName},
+		ToolSet:                openSession.catalog.toolSet,
+		PinnedToolNames:        openSession.catalog.toolNames,
 	}
 	stopObserving := openSession.taskEvents.RegisterTurnObserver(func(rawTurnEvent taskstate.RawTurnEvent) {
 		openSession.rememberTaskRun(rawTurnEvent.TaskRunID)
