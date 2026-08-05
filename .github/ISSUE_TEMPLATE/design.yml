@@ -1,0 +1,42 @@
+name: Design question or disagreement
+description: Argue with a decision, or ask why something is the way it is
+labels: ["design"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the issue the project most wants. It is published pre-alpha so
+        the design can be argued with.
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: The decision
+      description: >
+        Which choice you are asking about, and where it is written down — a
+        README section, a file, a test name. The guarantees are test names, so
+        a test name is the most precise thing you can point at.
+      placeholder: |
+        The port is one method — README, The shape.
+    validations:
+      required: true
+
+  - type: textarea
+    id: case
+    attributes:
+      label: Your case
+      description: >
+        What breaks, what it costs, or what you would do instead. A concrete
+        scenario beats a preference.
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: What you are working within
+      description: >
+        Optional. The host you are embedding this in, the provider you are
+        using, the scale the design does not assume.
+    validations:
+      required: false

@@ -1,0 +1,68 @@
+name: Bug report
+description: The loop behaved differently from what the documentation says
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you asked for, what you expected, and what you got instead.
+      placeholder: |
+        Resumed a task that had been waiting for approval for two days.
+        Expected the held tool call to re-execute verbatim. It started over.
+    validations:
+      required: true
+
+  - type: textarea
+    id: ledger
+    attributes:
+      label: Event ledger
+      description: |
+        The task run's events. `cmd/bluecollar` prints them to stderr, and an
+        embedding host can read them from `TaskRunService.ListTaskEvent`. This
+        is what makes a report diagnosable: it records what the loop did rather
+        than what it said afterwards.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: revision
+    attributes:
+      label: Commit
+      description: >
+        Output of `git rev-parse HEAD`. There are no releases yet, so the SHA is
+        the only version there is.
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model and endpoint
+      description: >
+        Which model answered, and through what. The loop asks for structured
+        output, and weak models fail that differently from strong ones.
+      placeholder: qwen3:4b through Ollama, or claude-sonnet-5 through an AI SDK sidecar
+    validations:
+      required: true
+
+  - type: dropdown
+    id: driver
+    attributes:
+      label: How you drove it
+      options:
+        - cmd/bluecollar (the standalone runner)
+        - embedded in my own host
+        - embedded in blueclaw
+        - a test in this repository
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: A failing test, the tool set you supplied, how often it reproduces.
+    validations:
+      required: false

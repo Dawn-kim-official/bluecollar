@@ -134,6 +134,12 @@ go test ./...
 Every check that runs in CI is in [`.github/workflows/check.yml`](./.github/workflows/check.yml):
 `gofmt`, `go vet`, `go build`, `go test`. No network, no credentials, no database.
 
+## Contributing
+
+Pull requests open at alpha. Until then the design is moving too fast for
+outside patches to be a kindness to whoever sends them. Issues are welcome now —
+a decision you disagree with is the most useful one.
+
 ## License
 
 MIT. See [LICENSE](./LICENSE).
