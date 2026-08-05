@@ -20,6 +20,7 @@ type AgentTurnRunner struct {
 	taskStepService                taskstate.TaskStepStore
 	taskArtifactService            taskstate.TaskArtifactStore
 	languageModel                  model.LanguageModelProvider
+	languageModelTaskLevel         TaskLevel
 	recoveryLanguageModel          model.LanguageModelProvider
 	taskLevelLanguageModelResolver TaskLevelLanguageModelResolver
 	options                        TurnOptions
@@ -168,13 +169,15 @@ func NewAgentTurnRunnerWithRecoveryModel(taskRunService taskstate.TaskRunStore, 
 	if recoveryLanguageModel == nil {
 		recoveryLanguageModel = languageModel
 	}
+	normalizedOptions := normalizeTurnOptions(options)
 	return &AgentTurnRunner{
-		taskRunService:        taskRunService,
-		taskStepService:       taskStepService,
-		taskArtifactService:   taskArtifactService,
-		languageModel:         languageModel,
-		recoveryLanguageModel: recoveryLanguageModel,
-		options:               normalizeTurnOptions(options),
+		taskRunService:         taskRunService,
+		taskStepService:        taskStepService,
+		taskArtifactService:    taskArtifactService,
+		languageModel:          languageModel,
+		languageModelTaskLevel: normalizedOptions.TaskLevel,
+		recoveryLanguageModel:  recoveryLanguageModel,
+		options:                normalizedOptions,
 	}
 }
 
@@ -1677,11 +1680,15 @@ func (agentTurnRunner *AgentTurnRunner) escalateLanguageModel(taskRunID string, 
 	if agentTurnRunner.taskLevelLanguageModelResolver == nil {
 		return
 	}
+	if newTaskLevel == agentTurnRunner.languageModelTaskLevel {
+		return
+	}
 	escalatedLanguageModel := agentTurnRunner.taskLevelLanguageModelResolver(newTaskLevel)
-	if escalatedLanguageModel == nil || isSameLanguageModelProvider(escalatedLanguageModel, observedInnerLanguageModel(agentTurnRunner.languageModel)) {
+	if escalatedLanguageModel == nil {
 		return
 	}
 	agentTurnRunner.languageModel = observeLanguageModel(escalatedLanguageModel, agentTurnRunner.llmCallObserverForTaskRun(taskRunID))
+	agentTurnRunner.languageModelTaskLevel = newTaskLevel
 	agentTurnRunner.appendEvent(taskRunID, "agent.model_escalated", marshalEventBody(modelEscalatedEventBody{
 		PreviousTaskLevel: previousTaskLevel,
 		NewTaskLevel:      newTaskLevel,
