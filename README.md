@@ -38,8 +38,8 @@ watch, a coding agent is the better tool.
 ```
 host  ──── agentcontract.Harness ────  bluecollar
   │                                        │
-  │ owns: tools, identity, task store,     │ owns: the turn loop, routing,
-  │       approvals, process isolation     │       skills, completion judgment
+  │ owns: tools, identity, task store,     │ owns: the turn loop, skills,
+  │       routing, process isolation       │       approvals, completion judgment
   │                                        │
   └──────── executes every tool call ──────┘
 ```
@@ -57,8 +57,8 @@ type Harness interface {
 ```
 
 It used to be nine. Routing, addressing, follow-up classification and one-shot replies were verbs on
-the port until it became clear they are host policy, not harness behaviour: a host that answers
-its own messenger decides what an inbound message *means* before anything runs a turn. Those
+the port until it became clear where they belong: a host that answers its own messenger decides
+what an inbound message *means* before anything runs a turn, so the decision is its. Those
 still live here — [`intake.Classifier`](./intake) routes and classifies, `AgentKernel` carries
 `RunAgentRequest` and `CompleteLaunchFailure` — but a host is free to bring its own, and a harness
 that implements only `RunTurn` is complete.
@@ -121,6 +121,10 @@ go test -run 'Checkpoint|Resume|Approval' -v .
   exits; the interface belongs to whichever host embeds the loop.
 - Native multi-step tool calling. The loop currently forces one structured action per step, which
   costs a turn per tool call and blocks parallel calls. Migration is planned and staged.
+- Approvals in the host, where the ownership split above puts them. The loop still holds its own:
+  it writes the pending call, pauses the run, and replays the held call verbatim on the next turn.
+  A host that drives an external agent already runs a gate of its own, so today there are two
+  implementations of one boundary and the configured harness picks which runs.
 
 ## Building and testing
 
