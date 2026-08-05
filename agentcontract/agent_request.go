@@ -2,6 +2,7 @@ package agentcontract
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
@@ -50,6 +51,7 @@ type AgentRequest struct {
 	AmbientDuty                AmbientDutyContext
 	TaskLevel                  TaskLevel
 	TurnStartedAt              time.Time
+	CarriedOutCalls            []CarriedOutCall
 	CheckpointSender           AgentCheckpointSender
 }
 
@@ -94,6 +96,12 @@ type ContractToolWorkingSet struct {
 
 func (workingSet ContractToolWorkingSet) IsAuthoritative() bool {
 	return len(workingSet.RequiredNextTools) > 0 || len(workingSet.RequiredEvidenceTools) > 0
+}
+
+type CarriedOutCall struct {
+	ToolName  string                  `json:"toolName"`
+	ToolInput json.RawMessage         `json:"toolInput,omitempty"`
+	Result    toolcontract.ToolResult `json:"result"`
 }
 
 type AgentTurnRequest struct {
@@ -157,6 +165,7 @@ type AgentTurnRequest struct {
 	EffortStartedAt              time.Time
 	TurnAnchorClamped            bool
 	OriginalTurnStartedAt        time.Time
+	CarriedOutCalls              []CarriedOutCall
 	CheckpointSender             AgentCheckpointSender
 	StepBudgetContext            string
 	ArtifactManifest             []ArtifactManifestEntry
