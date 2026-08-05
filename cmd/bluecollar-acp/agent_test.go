@@ -240,3 +240,65 @@ func containsString(values []string, wanted string) bool {
 	}
 	return false
 }
+
+type cancellingHostClient struct {
+	hostClient
+	cancelAfterToolCalls int
+	cancel               func()
+}
+
+func (client *cancellingHostClient) SessionUpdate(ctx context.Context, notification acp.SessionNotification) error {
+	client.hostClient.SessionUpdate(ctx, notification)
+	if notification.Update.ToolCall != nil && len(client.hostClient.toolCalls) >= client.cancelAfterToolCalls {
+		client.cancel()
+	}
+	return nil
+}
+
+func TestACancelledTurnStopsCallingTools(t *testing.T) {
+	hostCalls := []hostToolCall{}
+	catalogServer := publishedCatalog(t, &hostCalls)
+	catalogClientTransport, catalogServerTransport := mcp.NewInMemoryTransports()
+	go catalogServer.Run(t.Context(), catalogServerTransport)
+
+	languageModel := &scriptedLanguageModel{contents: []string{
+		`{"action":"continue","toolName":"note_write","toolInput":{"text":"one"}}`,
+		`{"action":"continue","toolName":"note_write","toolInput":{"text":"two"}}`,
+		`{"action":"continue","toolName":"note_write","toolInput":{"text":"three"}}`,
+		`{"action":"finish","message":"done","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
+	}}
+
+	agentInputReader, agentInputWriter := io.Pipe()
+	agentOutputReader, agentOutputWriter := io.Pipe()
+	runningAgent := newAgent(languageModel, "bluecollar")
+	runningAgent.resolveTransport = func(acp.McpServer) (mcp.Transport, error) { return catalogClientTransport, nil }
+	go func() {
+		agentConnection := acp.NewAgentSideConnection(runningAgent, agentOutputWriter, agentInputReader)
+		runningAgent.sessionUpdates = agentConnection
+		<-agentConnection.Done()
+	}()
+
+	host := &cancellingHostClient{cancelAfterToolCalls: 1}
+	connection := acp.NewClientSideConnection(host, agentInputWriter, agentOutputReader)
+	connection.Initialize(t.Context(), acp.InitializeRequest{ProtocolVersion: acp.ProtocolVersionNumber})
+	newSession, errorValue := connection.NewSession(t.Context(), acp.NewSessionRequest{Cwd: t.TempDir(), McpServers: []acp.McpServer{{Stdio: &acp.McpServerStdio{Name: "host"}}}})
+	if errorValue != nil {
+		t.Fatalf("session/new: %v", errorValue)
+	}
+	host.cancel = func() { connection.Cancel(t.Context(), acp.CancelNotification{SessionId: newSession.SessionId}) }
+
+	promptResponse, errorValue := connection.Prompt(t.Context(), acp.PromptRequest{
+		SessionId: newSession.SessionId,
+		Prompt:    []acp.ContentBlock{acp.TextBlock("세 번 적어줘")},
+	})
+	if errorValue != nil {
+		t.Fatalf("session/prompt: %v", errorValue)
+	}
+
+	if promptResponse.StopReason != acp.StopReasonCancelled {
+		t.Fatalf("a turn the host cancelled has to come back cancelled, got %q", promptResponse.StopReason)
+	}
+	if len(hostCalls) >= len(languageModel.contents) {
+		t.Fatalf("a cancel that arrives mid-turn has to stop the tools, the script ran all %d of them", len(hostCalls))
+	}
+}

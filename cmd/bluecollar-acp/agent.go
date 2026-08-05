@@ -16,11 +16,12 @@ import (
 )
 
 type session struct {
-	catalog    *catalog
-	taskRunID  string
-	kernel     *bluecollar.AgentKernel
-	taskRuns   *taskstate.TaskRunService
-	taskEvents *taskstate.TaskEventService
+	catalog        *catalog
+	taskRunIDMutex sync.Mutex
+	taskRunID      string
+	kernel         *bluecollar.AgentKernel
+	taskRuns       *taskstate.TaskRunService
+	taskEvents     *taskstate.TaskEventService
 }
 
 type agent struct {
@@ -83,13 +84,14 @@ func (runningAgent *agent) Prompt(ctx context.Context, request acp.PromptRequest
 	turnRequest := agentcontract.AgentTurnRequest{
 		RequesterPersonID: requesterPersonID,
 		ConversationID:    string(request.SessionId),
-		ExistingTaskRunID: openSession.taskRunID,
+		ExistingTaskRunID: openSession.currentTaskRunID(),
 		Prompt:            promptText(request.Prompt),
 		AgentIdentity:     agentcontract.AgentIdentity{Name: runningAgent.agentName},
 		ToolSet:           openSession.catalog.toolSet,
 		PinnedToolNames:   openSession.catalog.toolNames,
 	}
 	stopObserving := openSession.taskEvents.RegisterTurnObserver(func(rawTurnEvent taskstate.RawTurnEvent) {
+		openSession.rememberTaskRun(rawTurnEvent.TaskRunID)
 		sendLedgerEvent(ctx, runningAgent.sessionUpdates, request.SessionId, rawTurnEvent)
 	})
 	defer stopObserving()
@@ -104,7 +106,6 @@ func (runningAgent *agent) Prompt(ctx context.Context, request acp.PromptRequest
 	if errorValue != nil {
 		return acp.PromptResponse{}, errorValue
 	}
-	openSession.taskRunID = turnResult.TaskRun.TaskRunID
 	return acp.PromptResponse{StopReason: stopReasonForStatus(turnResult.TaskRun.Status)}, nil
 }
 
@@ -156,7 +157,33 @@ func promptText(contentBlocks []acp.ContentBlock) string {
 	return strings.TrimSpace(strings.Join(segments, "\n"))
 }
 
-func (runningAgent *agent) Cancel(context.Context, acp.CancelNotification) error { return nil }
+func (runningAgent *agent) Cancel(_ context.Context, notification acp.CancelNotification) error {
+	openSession, isKnown := runningAgent.session(notification.SessionId)
+	if !isKnown {
+		return nil
+	}
+	taskRunID := openSession.currentTaskRunID()
+	if taskRunID == "" {
+		return nil
+	}
+	openSession.taskRuns.CancelTaskRunWithReason(taskRunID, requesterPersonID, "the host cancelled this turn")
+	return nil
+}
+
+func (openSession *session) rememberTaskRun(taskRunID string) {
+	if strings.TrimSpace(taskRunID) == "" {
+		return
+	}
+	openSession.taskRunIDMutex.Lock()
+	defer openSession.taskRunIDMutex.Unlock()
+	openSession.taskRunID = taskRunID
+}
+
+func (openSession *session) currentTaskRunID() string {
+	openSession.taskRunIDMutex.Lock()
+	defer openSession.taskRunIDMutex.Unlock()
+	return openSession.taskRunID
+}
 
 func (runningAgent *agent) Authenticate(context.Context, acp.AuthenticateRequest) (acp.AuthenticateResponse, error) {
 	return acp.AuthenticateResponse{}, nil
