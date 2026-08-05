@@ -117,6 +117,8 @@ go test -run 'Checkpoint|Resume|Approval' -v .
 ## What is not here yet
 
 - Tools in the standalone runner. It reasons and answers; a host supplies the tool set.
+  `cmd/bluecollar-acp` takes its tool set from the MCP servers the host names when it opens a
+  session, so a host that publishes a catalog gives the loop everything it can do.
 - An interactive terminal front end, and none is planned here. `cmd/bluecollar` prints a ledger and
   exits; the interface belongs to whichever host embeds the loop.
 - Native multi-step tool calling. The loop currently forces one structured action per step, which
@@ -128,7 +130,10 @@ go test -run 'Checkpoint|Resume|Approval' -v .
 
 ## Building and testing
 
-The module depends on one library and nothing outside its own directory.
+The module depends on one library and nothing outside its own directory. The ACP
+agent is a second module under [`cmd/bluecollar-acp`](./cmd/bluecollar-acp), so
+the protocol adapter's dependencies stay out of the graph of anything that
+embeds the loop.
 
 ```
 go build ./...
