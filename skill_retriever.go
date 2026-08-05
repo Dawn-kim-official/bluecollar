@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 const defaultEmbeddingModelName = "embedding_create"

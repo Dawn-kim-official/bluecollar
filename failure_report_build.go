@@ -2,10 +2,10 @@ package bluecollar
 
 import (
 	"context"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"strings"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 func buildFailureReport(request AgentTurnRequest, taskRunID string, phase string, stopReason string, observations []turnObservation, attachments []toolcontract.FileAttachment, executionState ExecutionState, decision recoveryDecision) FailureReport {

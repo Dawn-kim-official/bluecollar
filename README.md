@@ -2,8 +2,8 @@
 
 # bluecollar
 
-[![check](https://github.com/Dawn-kim-official/bluecollar/actions/workflows/check.yml/badge.svg)](https://github.com/Dawn-kim-official/bluecollar/actions/workflows/check.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Dawn-kim-official/bluecollar.svg)](https://pkg.go.dev/github.com/Dawn-kim-official/bluecollar)
+[![check](https://github.com/yeomyeonggeori/bluecollar/actions/workflows/check.yml/badge.svg)](https://github.com/yeomyeonggeori/bluecollar/actions/workflows/check.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/yeomyeonggeori/bluecollar.svg)](https://pkg.go.dev/github.com/yeomyeonggeori/bluecollar)
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -80,7 +80,7 @@ a task from a cheap model to a strong one without restarting it.
 `model/openaicompatible` is the one implementation shipped here, so the module runs against Ollama,
 vLLM, OpenRouter or anything else speaking `/chat/completions`. Hosts that need routing, tiering or
 usage accounting bring their own; the reference is an [AI SDK](https://ai-sdk.dev) sidecar in
-[blueclaw](https://github.com/Dawn-kim-official/blueclaw).
+[blueclaw](https://github.com/yeomyeonggeori/blueclaw).
 
 ## Running it
 

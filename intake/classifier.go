@@ -1,7 +1,7 @@
 package intake
 
 import (
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 type Classifier struct {

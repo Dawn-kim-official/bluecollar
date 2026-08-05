@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/agentcontract"
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 )
 
 func TestAddressingPromptCarriesMessageAndContextTime(t *testing.T) {

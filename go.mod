@@ -1,4 +1,4 @@
-module github.com/Dawn-kim-official/bluecollar
+module github.com/yeomyeonggeori/bluecollar
 
 go 1.26.0
 

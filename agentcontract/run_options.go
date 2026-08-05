@@ -1,6 +1,6 @@
 package agentcontract
 
-import "github.com/Dawn-kim-official/bluecollar/model"
+import "github.com/yeomyeonggeori/bluecollar/model"
 
 const DefaultReactionEmojiName = "white_check_mark"
 

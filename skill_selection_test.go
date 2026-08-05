@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Dawn-kim-official/bluecollar/toolcontract"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 func TestSelectInstructionBundleIncludesPresentationForKoreanPPTRequest(t *testing.T) {

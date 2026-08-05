@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/Dawn-kim-official/bluecollar/model"
+	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
 type SkillSearchQueryRouter struct {
