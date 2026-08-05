@@ -125,6 +125,10 @@ go test -run 'Checkpoint|Resume|Approval' -v .
   exits; the interface belongs to whichever host embeds the loop.
 - Native multi-step tool calling. The loop currently forces one structured action per step, which
   costs a turn per tool call and blocks parallel calls. Migration is planned and staged.
+- Mid-turn steering over ACP. A host embedding the loop injects a `task.steer.requested` event
+  and the turn picks it up on its next step. The protocol has no construct for that: a second
+  `session/prompt` cancels the first, and `session/cancel` is the only client-to-agent message
+  during a turn. Until one is designed, a steer reaches only an in-process host.
 - Approvals in the host, where the ownership split above puts them. The loop still holds its own:
   it writes the pending call, pauses the run, and replays the held call verbatim on the next turn.
   A host that drives an external agent already runs a gate of its own, so today there are two
