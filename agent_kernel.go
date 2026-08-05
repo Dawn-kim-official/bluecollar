@@ -522,7 +522,7 @@ func (agentKernel *AgentKernel) selectInstructionBundleForResolvedRequest(ctx co
 }
 
 func (agentKernel *AgentKernel) completeConsumedRequest(request AgentRequest, decision TurnDecision, routerCallRecords []llmCallRecord) (AgentTurnResult, error) {
-	taskRun := agentKernel.createTaskRunForRequest(request)
+	taskRun := agentKernel.taskRunForRequest(request)
 	reactionEmojiName := NormalizeReactionEmojiName(decision.ReactionEmojiName)
 	agentKernel.appendTurnRouterCallRecords(taskRun.TaskRunID, routerCallRecords)
 	agentKernel.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "agent.intake", marshalEventBody(decision.IntakeDecision()))
@@ -566,7 +566,7 @@ func (agentKernel *AgentKernel) planConfirmationGate(responseContext context.Con
 func (agentKernel *AgentKernel) pauseForClarification(responseContext context.Context, request AgentRequest, intakeDecision IntakeDecision, plan confirmationGatePlan, outcomeContract OutcomeContract, evidenceHints []string, selectedSkills []string) (AgentTurnResult, error) {
 	executionPlan := plan.ExecutionPlan
 	decision := plan.Decision
-	taskRun := agentKernel.createTaskRunForRequest(request)
+	taskRun := agentKernel.taskRunForRequest(request)
 	agentKernel.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "agent.intake", marshalEventBody(intakeDecision))
 	agentKernel.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "confirmation.plan_created", marshalEventBody(executionPlan))
 	agentKernel.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "confirmation.policy_decision", marshalEventBody(decision))
@@ -600,7 +600,7 @@ func (agentKernel *AgentKernel) ResumeTask(taskRunID string) (taskstate.TaskRun,
 }
 
 func (agentKernel *AgentKernel) completeIntakeOnlyRequest(responseContext context.Context, request AgentRequest, intakeDecision IntakeDecision, status taskstate.TaskStatus, routerCallRecords []llmCallRecord) (AgentTurnResult, error) {
-	taskRun := agentKernel.createTaskRunForRequest(request)
+	taskRun := agentKernel.taskRunForRequest(request)
 	agentKernel.appendTurnRouterCallRecords(taskRun.TaskRunID, routerCallRecords)
 	agentKernel.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "agent.intake", marshalEventBody(intakeDecision))
 	finishMessage := strings.TrimSpace(intakeDecision.UserFacingReply)
@@ -636,7 +636,12 @@ func (agentKernel *AgentKernel) completeIntakeOnlyRequest(responseContext contex
 	return AgentTurnResult{TaskRun: blockedTaskRun, UserNotice: finishMessage, ToolNames: toolNamesForEvent(request.ToolSet)}, nil
 }
 
-func (agentKernel *AgentKernel) createTaskRunForRequest(request AgentRequest) taskstate.TaskRun {
+func (agentKernel *AgentKernel) taskRunForRequest(request AgentRequest) taskstate.TaskRun {
+	if taskRunID := strings.TrimSpace(request.ExistingTaskRunID); taskRunID != "" {
+		if taskRun, isFound := agentKernel.taskRunService.FindTaskRun(taskRunID); isFound {
+			return taskRun
+		}
+	}
 	return agentKernel.taskRunService.CreateTaskRunWithOrigin(request.RequesterPersonID, taskstate.TaskRunOrigin{
 		ConversationID: request.ConversationID,
 		ReplyTargetID:  request.OriginReplyTargetID,
@@ -743,7 +748,7 @@ func (agentKernel *AgentKernel) completeIntakeIfElapsed(turnBudget turnBudgetCon
 }
 
 func (agentKernel *AgentKernel) completeIntakeElapsed(turnBudget turnBudgetContext, request AgentRequest, intakeDecision IntakeDecision, routerCallRecords []llmCallRecord) AgentTurnResult {
-	taskRun := agentKernel.taskRunForIntakeLimit(request)
+	taskRun := agentKernel.taskRunForRequest(request)
 	agentKernel.appendTurnRouterCallRecords(taskRun.TaskRunID, routerCallRecords)
 	if intakeDecision.TaskLevel != "" {
 		agentKernel.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "agent.intake", marshalEventBody(intakeDecision))
@@ -782,15 +787,6 @@ func (agentKernel *AgentKernel) generateIntakeElapsedNotice(responseContext cont
 		DiagnosticEventID:  taskRunID + ":intake_limit",
 	}
 	return (FailureNoticeGenerator{LanguageModel: agentKernel.languageModel}).Generate(responseContext, report)
-}
-
-func (agentKernel *AgentKernel) taskRunForIntakeLimit(request AgentRequest) taskstate.TaskRun {
-	if taskRunID := strings.TrimSpace(request.ExistingTaskRunID); taskRunID != "" {
-		if taskRun, isFound := agentKernel.taskRunService.FindTaskRun(taskRunID); isFound {
-			return taskRun
-		}
-	}
-	return agentKernel.createTaskRunForRequest(request)
 }
 
 func intakeLimitEventBody(turnBudget turnBudgetContext) map[string]any {

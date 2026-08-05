@@ -2,14 +2,16 @@ package harnesstest
 
 import (
 	"context"
+	"strings"
 
 	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
 
 // Harness answers the agent harness port with canned decisions so host tests
-// can exercise the host without the agent turn loop. It creates a real task run
-// for every turn because the host reads the run the loop reports back.
+// can exercise the host without the agent turn loop. It settles a real task
+// run for every turn because the host reads the run the loop reports back,
+// using the one the host opened when it was given one.
 type Harness struct {
 	taskRunService *taskstate.TaskRunService
 
@@ -102,11 +104,7 @@ func (harness *Harness) ClassifyAddressingCallCount() int {
 }
 
 func (harness *Harness) settleTaskRun(request agentcontract.AgentTurnRequest, status taskstate.TaskStatus, message string) (taskstate.TaskRun, error) {
-	taskRun := harness.taskRunService.CreateTaskRunWithOrigin(request.RequesterPersonID, taskstate.TaskRunOrigin{
-		ConversationID: request.ConversationID,
-		ReplyTargetID:  request.OriginReplyTargetID,
-		IsThread:       request.OriginIsThread,
-	}, request.Prompt)
+	taskRun := harness.taskRunForRequest(request)
 	runningTaskRun, errorValue := harness.taskRunService.AdvanceTaskRun(taskRun.TaskRunID, request.ProfileName)
 	if errorValue != nil {
 		return taskstate.TaskRun{}, errorValue
@@ -121,4 +119,17 @@ func (harness *Harness) settleTaskRun(request agentcontract.AgentTurnRequest, st
 	default:
 		return harness.taskRunService.PauseTaskRun(taskRun.TaskRunID, status, message)
 	}
+}
+
+func (harness *Harness) taskRunForRequest(request agentcontract.AgentTurnRequest) taskstate.TaskRun {
+	if taskRunID := strings.TrimSpace(request.ExistingTaskRunID); taskRunID != "" {
+		if taskRun, isFound := harness.taskRunService.FindTaskRun(taskRunID); isFound {
+			return taskRun
+		}
+	}
+	return harness.taskRunService.CreateTaskRunWithOrigin(request.RequesterPersonID, taskstate.TaskRunOrigin{
+		ConversationID: request.ConversationID,
+		ReplyTargetID:  request.OriginReplyTargetID,
+		IsThread:       request.OriginIsThread,
+	}, request.Prompt)
 }
