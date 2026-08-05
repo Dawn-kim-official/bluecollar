@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yeomyeonggeori/bluecollar"
 	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/intake"
+	"github.com/yeomyeonggeori/bluecollar/loop"
 	"github.com/yeomyeonggeori/bluecollar/model/openaicompatible"
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
@@ -41,7 +41,7 @@ func runOneTurn(endpointURL string, apiKey string, modelName string, agentName s
 	languageModel := openaicompatible.NewProvider(endpointURL, apiKey, modelName)
 	taskEventService := taskstate.NewTaskEventService()
 	taskRunService := taskstate.NewTaskRunService(taskEventService)
-	kernel := bluecollar.NewAgentKernel(taskRunService, taskstate.NewTaskStepService())
+	kernel := loop.NewAgentKernel(taskRunService, taskstate.NewTaskStepService())
 	kernel.UseLanguageModelProvider(languageModel)
 
 	turnContext, cancel := context.WithTimeout(context.Background(), timeout)

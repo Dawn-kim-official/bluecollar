@@ -46,7 +46,8 @@ host  ──── agentcontract.Harness ────  bluecollar
 
 The host and the harness compile against one shared contract package,
 [`agentcontract`](./agentcontract). A different harness — an AI SDK adapter, an external agent —
-drops into the same socket.
+drops into the same socket. The loop itself is [`loop`](./loop); the root of the
+repository holds the contract packages, the commands, and nothing else.
 
 The port is one method:
 
