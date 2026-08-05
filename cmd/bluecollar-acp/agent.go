@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	acp "github.com/coder/acp-go-sdk"
-	"github.com/yeomyeonggeori/bluecollar"
 	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/intake"
+	"github.com/yeomyeonggeori/bluecollar/loop"
 	"github.com/yeomyeonggeori/bluecollar/model"
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
@@ -19,7 +19,7 @@ type session struct {
 	catalog        *catalog
 	taskRunIDMutex sync.Mutex
 	taskRunID      string
-	kernel         *bluecollar.AgentKernel
+	kernel         *loop.AgentKernel
 	taskRuns       *taskstate.TaskRunService
 	taskEvents     *taskstate.TaskEventService
 }
@@ -60,7 +60,7 @@ func (runningAgent *agent) NewSession(ctx context.Context, request acp.NewSessio
 	}
 	taskEvents := taskstate.NewTaskEventService()
 	taskRuns := taskstate.NewTaskRunService(taskEvents)
-	kernel := bluecollar.NewAgentKernel(taskRuns, taskstate.NewTaskStepService())
+	kernel := loop.NewAgentKernel(taskRuns, taskstate.NewTaskStepService())
 	kernel.UseLanguageModelProvider(runningAgent.languageModel)
 
 	runningAgent.mutex.Lock()
