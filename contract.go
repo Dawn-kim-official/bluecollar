@@ -256,8 +256,6 @@ var (
 	activeGoalDescription = agentcontract.ActiveGoalDescription
 )
 
-var ()
-
 var (
 	normalizeIntakeOptions          = agentcontract.NormalizeIntakeOptions
 	NormalizeReactionEmojiName      = agentcontract.NormalizeReactionEmojiName
@@ -286,11 +284,6 @@ type (
 )
 
 var observeLanguageModel = agentcontract.ObserveLanguageModel
-
-var (
-	isSameLanguageModelProvider = agentcontract.IsSameLanguageModelProvider
-	observedInnerLanguageModel  = agentcontract.ObservedInnerLanguageModel
-)
 
 const agentActionSchemaName = agentcontract.AgentActionSchemaName
 

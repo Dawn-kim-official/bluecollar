@@ -3,7 +3,6 @@ package agentcontract
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 	"strings"
 	"time"
 
@@ -102,31 +101,6 @@ func ObserveLanguageModel(provider model.LanguageModelProvider, observe LLMCallO
 
 func (observedModel observedLanguageModel) observedInnerProvider() model.LanguageModelProvider {
 	return observedModel.provider
-}
-
-func ObservedInnerLanguageModel(provider model.LanguageModelProvider) model.LanguageModelProvider {
-	observedProvider, isObserved := provider.(interface {
-		observedInnerProvider() model.LanguageModelProvider
-	})
-	if !isObserved {
-		return provider
-	}
-	return observedProvider.observedInnerProvider()
-}
-
-func IsSameLanguageModelProvider(left model.LanguageModelProvider, right model.LanguageModelProvider) bool {
-	if left == nil || right == nil {
-		return left == nil && right == nil
-	}
-	leftValue := reflect.ValueOf(left)
-	rightValue := reflect.ValueOf(right)
-	if leftValue.Type() != rightValue.Type() {
-		return false
-	}
-	if !leftValue.Comparable() {
-		return reflect.DeepEqual(left, right)
-	}
-	return left == right
 }
 
 func (observedModel observedLanguageModel) TextChatCompleter() (model.ChatCompleter, bool) {
