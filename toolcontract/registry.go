@@ -370,6 +370,7 @@ type ToolSet struct {
 	boundToolNameByID     map[string]string
 	quarantinedProviders  []QuarantinedToolProvider
 	allowsTestReplacement bool
+	toolCallGate          ToolCallGate
 }
 
 func NewToolSet(allowedToolNames []string) *ToolSet {
@@ -610,6 +611,7 @@ func (toolSet *ToolSet) WithAllowedToolNames(toolNames []string) *ToolSet {
 		filteredToolSet.boundToolNameByID[boundTool.Definition.ID] = toolName
 	}
 	filteredToolSet.quarantinedProviders = append([]QuarantinedToolProvider{}, toolSet.quarantinedProviders...)
+	filteredToolSet.toolCallGate = toolSet.toolCallGate
 	return filteredToolSet
 }
 
@@ -655,6 +657,9 @@ func (toolSet *ToolSet) invokeRegistered(ctx context.Context, toolInvocation Too
 		return ToolFailureResult(FailureInvalidInput, FailureCodes.InvalidInput, "tool_input_schema", errorValue.Error()), nil
 	}
 	toolInvocation.Input = toolInput
+	if reviewResult, isWithheld := toolSet.reviewToolCall(ctx, toolInvocation, boundTool.Definition); isWithheld {
+		return reviewResult, nil
+	}
 	result, errorValue := boundTool.Handler(ctx, toolInvocation)
 	if errorValue != nil || result.Failed() {
 		return result, errorValue
