@@ -1475,6 +1475,9 @@ func TestATurnEndsWhereTheHostHeldTheCallItAskedFor(t *testing.T) {
 	if result.UserNotice != "이 일정을 삭제할까요?" {
 		t.Fatalf("a held turn that carries no question leaves the requester nothing to answer, got %q", result.UserNotice)
 	}
+	if taskEventsContain(services.taskEventService.ListTaskEvent(taskRun.TaskRunID), "agent.failure_debt_created", "") {
+		t.Fatal("a call waiting for the requester is not a failed attempt the agent owes recovery for")
+	}
 }
 
 func TestAgentTurnRunnerSteersStalledTurnBeforeStopping(t *testing.T) {

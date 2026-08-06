@@ -608,6 +608,12 @@ func (agentTurnRunner *AgentTurnRunner) handleToolCallAction(ctx context.Context
 	if cancelledResult, isCancelled := agentTurnRunner.cancelledTaskResult(taskRunID, state.Attachments); isCancelled {
 		return toolCallActionOutcome{Result: cancelledResult, ShouldReturn: true, WasHandled: true}
 	}
+	if isApprovalRequiredObservation(observation) {
+		if pausedResult, isPaused := agentTurnRunner.pausedTaskResult(taskRunID, observation, state.Attachments); isPaused {
+			agentTurnRunner.saveStep(taskRunID, stepID, pausedResult.TaskRun.Status, "approval "+actionDocument.ToolName, observation.ContentText())
+			return toolCallActionOutcome{Result: pausedResult, ShouldReturn: true, WasHandled: true}
+		}
+	}
 	agentTurnRunner.recordToolObservation(taskRunID, state, actionDocument, successfulToolCalls, observation, recoveryStep)
 	agentTurnRunner.applyPlanUpdateObservation(taskRunID, state, observation)
 	updateCompletionIntent(state, actionDocument, observation)
