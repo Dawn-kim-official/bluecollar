@@ -111,8 +111,6 @@ type AgentTurnRequest struct {
 	RequesterPlatformUserID      string
 	SourceReference              string
 	IsApprovalContinuation       bool
-	HadApprovedHeldCall          bool
-	ApprovedHeldCallKey          string
 	IsRuntimeRestartResume       bool
 	ExistingTaskRunID            string
 	OriginReplyTargetID          string

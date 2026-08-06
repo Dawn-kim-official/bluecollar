@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
+	"strconv"
 	"strings"
 	"time"
 
@@ -292,14 +293,6 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 	toolUseRequirements := state.Requirements
 	successfulToolCalls := map[string]turnObservation{}
 	agentTurnRunner.recordCarriedOutCalls(workContext, taskRun.TaskRunID, request, &state, successfulToolCalls)
-	if request.IsApprovalContinuation {
-		var approvedResult AgentTurnResult
-		var shouldReturn bool
-		request, approvedResult, shouldReturn = agentTurnRunner.executeApprovedHeldCall(workContext, taskRun.TaskRunID, request, &state, successfulToolCalls)
-		if shouldReturn {
-			return approvedResult, nil
-		}
-	}
 	limitPressureWarnings := map[string]bool{}
 	progressTracker := newActionProgressTracker(state.Observations)
 	appliedSteerEventIDs := appliedSteerEventIDsFromTaskEvents(agentTurnRunner.taskRunService.ListTaskEvent(taskRun.TaskRunID))
@@ -598,7 +591,6 @@ func (agentTurnRunner *AgentTurnRunner) handleToolCallAction(ctx context.Context
 	}
 	agentTurnRunner.notePlanMissingBeforeStateChange(taskRunID, request, state, actionDocument)
 	if toolCallRequiresRuntimeApproval(request.ToolSet, actionDocument) &&
-		!isExemptFromApprovalHold(request, actionDocument) &&
 		!agentTurnRunner.taskAlreadyApprovedScope(taskRunID, request.ToolSet, actionDocument.ToolName) {
 		return agentTurnRunner.requestHeldCallApproval(ctx, taskRunID, stepID, request, state, actionDocument)
 	}
@@ -2154,6 +2146,15 @@ func nextObservationID(index int) string {
 
 func nextObservationIDForObservations(observations []turnObservation) string {
 	return nextObservationID(nextObservationIndex(observations))
+}
+
+func observationIndexFromID(observationID string) (int, bool) {
+	trimmedObservationID := strings.TrimSpace(observationID)
+	if !strings.HasPrefix(trimmedObservationID, "obs-") {
+		return 0, false
+	}
+	observationIndex, errorValue := strconv.Atoi(strings.TrimPrefix(trimmedObservationID, "obs-"))
+	return observationIndex, errorValue == nil
 }
 
 func nextObservationIndex(observations []turnObservation) int {

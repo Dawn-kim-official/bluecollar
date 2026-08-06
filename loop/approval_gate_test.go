@@ -38,128 +38,6 @@ func TestTerminalRunModelApprovalPausesBeforeExecution(t *testing.T) {
 	if firstResult.TaskRun.Status != taskstate.TaskStatusWaitingApproval || len(invokedInputs) != 0 {
 		t.Fatalf("expected approval before terminal execution, calls=%d result=%+v", len(invokedInputs), firstResult)
 	}
-
-	secondResult, errorValue := services.runner.RunTurn(context.Background(), AgentTurnRequest{
-		RequesterPersonID:      "person-1",
-		ExistingTaskRunID:      firstResult.TaskRun.TaskRunID,
-		IsApprovalContinuation: true,
-		ConversationID:         "conversation-1",
-		Prompt:                 "승인",
-		ResponseLanguage:       ResponseLanguageKorean,
-		ToolSet:                toolSet.WithAllowedToolNames(nil),
-		WorkspaceRootPath:      t.TempDir(),
-	})
-	if errorValue != nil {
-		t.Fatal(errorValue)
-	}
-	if secondResult.TaskRun.Status != taskstate.TaskStatusCompleted || len(invokedInputs) != 1 || invokedInputs[0] != terminalInput {
-		t.Fatalf("expected one approved terminal execution, calls=%+v result=%+v", invokedInputs, secondResult)
-	}
-}
-
-func TestIsApprovedHeldCallVerbatimMatch(t *testing.T) {
-	testCases := []struct {
-		name                string
-		approvedHeldCallKey string
-		actionDocument      turnActionDocument
-		expectMatch         bool
-	}{
-		{
-			name:                "exact tool and input matches",
-			approvedHeldCallKey: canonicalToolCallKey("task_delete", []byte(`{"taskID":"task-A"}`)),
-			actionDocument:      turnActionDocument{ToolName: "task_delete", ToolInput: []byte(`{"taskID":"task-A"}`)},
-			expectMatch:         true,
-		},
-		{
-			name:                "same tool with different input does not match",
-			approvedHeldCallKey: canonicalToolCallKey("task_delete", []byte(`{"taskID":"task-A"}`)),
-			actionDocument:      turnActionDocument{ToolName: "task_delete", ToolInput: []byte(`{"taskID":"task-B"}`)},
-			expectMatch:         false,
-		},
-		{
-			name:                "different tool with the same input does not match",
-			approvedHeldCallKey: canonicalToolCallKey("task_delete", []byte(`{"taskID":"task-A"}`)),
-			actionDocument:      turnActionDocument{ToolName: "message_delete", ToolInput: []byte(`{"taskID":"task-A"}`)},
-			expectMatch:         false,
-		},
-		{
-			name:                "consumed grant never matches",
-			approvedHeldCallKey: "",
-			actionDocument:      turnActionDocument{ToolName: "task_delete", ToolInput: []byte(`{"taskID":"task-A"}`)},
-			expectMatch:         false,
-		},
-		{
-			name:                "key ignores unrelated json field ordering",
-			approvedHeldCallKey: canonicalToolCallKey("task_delete", []byte(`{"taskID":"task-A","reason":"cleanup"}`)),
-			actionDocument:      turnActionDocument{ToolName: "task_delete", ToolInput: []byte(`{"reason":"cleanup","taskID":"task-A"}`)},
-			expectMatch:         true,
-		},
-	}
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			if isApprovedHeldCallVerbatimMatch(testCase.approvedHeldCallKey, testCase.actionDocument) != testCase.expectMatch {
-				t.Fatalf("expected match=%v for %s", testCase.expectMatch, testCase.name)
-			}
-		})
-	}
-}
-
-func TestExecuteApprovedHeldCallConsumesGrantAfterVerbatimExecution(t *testing.T) {
-	heldInput := `{"taskID":"task-A"}`
-	languageModel := &sequenceLanguageModel{contents: []string{
-		directToolAction("continue", "", "task_delete", heldInput),
-		`{"question":"task-A를 삭제할까요?"}`,
-	}}
-	services := newTurnRunnerTestServices(languageModel, TurnOptions{MaxIterationCount: 4})
-	toolRegistry := newTestCapabilityToolSet([]string{"task_delete"})
-	invokedInputs := []string{}
-	registerTestTool(toolRegistry, toolcontract.ToolDefinition{Name: "task_delete", RequiresApproval: true}, func(_ context.Context, invocation toolcontract.ToolInvocation) (toolcontract.ToolResult, error) {
-		invokedInputs = append(invokedInputs, string(invocation.Input))
-		return testToolSuccess(`{"status":"deleted"}`), nil
-	})
-
-	firstResult, errorValue := services.runner.RunTurn(context.Background(), AgentTurnRequest{
-		RequesterPersonID: "person-1",
-		ConversationID:    "conversation-1",
-		Prompt:            "task-A 삭제해줘",
-		ResponseLanguage:  ResponseLanguageKorean,
-		ToolSet:           toolRegistry,
-		PinnedToolNames:   []string{"task_delete"},
-		WorkspaceRootPath: t.TempDir(),
-	})
-	if errorValue != nil {
-		t.Fatal(errorValue)
-	}
-	if firstResult.TaskRun.Status != taskstate.TaskStatusWaitingApproval {
-		t.Fatalf("expected held call before execution, result=%+v", firstResult)
-	}
-
-	if _, errorValue := services.taskRunService.AdvanceTaskRun(firstResult.TaskRun.TaskRunID, "assistant"); errorValue != nil {
-		t.Fatal(errorValue)
-	}
-	continuationRequest := AgentTurnRequest{
-		RequesterPersonID:      "person-1",
-		ExistingTaskRunID:      firstResult.TaskRun.TaskRunID,
-		IsApprovalContinuation: true,
-		ConversationID:         "conversation-1",
-		ToolSet:                toolRegistry,
-		PinnedToolNames:        []string{"task_delete"},
-		WorkspaceRootPath:      t.TempDir(),
-	}
-	state := buildInitialAgentTaskState(continuationRequest, TurnOptions{}, firstResult.TaskRun.TaskRunID)
-	updatedRequest, _, shouldReturn := services.runner.executeApprovedHeldCall(context.Background(), firstResult.TaskRun.TaskRunID, continuationRequest, &state, map[string]turnObservation{})
-	if shouldReturn {
-		t.Fatalf("expected the verbatim held call to complete without pausing again")
-	}
-	if len(invokedInputs) != 1 || invokedInputs[0] != heldInput {
-		t.Fatalf("expected exactly one verbatim execution, got %+v", invokedInputs)
-	}
-	if updatedRequest.ApprovedHeldCallKey != "" {
-		t.Fatalf("expected the single-use approval grant to be consumed after the verbatim execution, got %q", updatedRequest.ApprovedHeldCallKey)
-	}
-	if state.Request.ApprovedHeldCallKey != "" {
-		t.Fatalf("expected the carried task state to reflect the consumed grant, got %q", state.Request.ApprovedHeldCallKey)
-	}
 }
 
 func TestApprovalContinuationKeepsPrePauseObservations(t *testing.T) {
@@ -213,6 +91,11 @@ func TestApprovalContinuationKeepsPrePauseObservations(t *testing.T) {
 		PinnedToolNames:        toolRegistry.ListToolNames(),
 		RequiredEvidenceTools:  []string{"message_search", "message_delete"},
 		WorkspaceRootPath:      t.TempDir(),
+		CarriedOutCalls: []CarriedOutCall{{
+			ToolName:  "message_delete",
+			ToolInput: json.RawMessage(`{"messageIDs":["message-1"]}`),
+			Result:    testToolSuccess(`{"deletedMessageIDs":["message-1"]}`),
+		}},
 	})
 	if errorValue != nil {
 		t.Fatal(errorValue)
@@ -220,8 +103,8 @@ func TestApprovalContinuationKeepsPrePauseObservations(t *testing.T) {
 	if secondResult.TaskRun.Status != taskstate.TaskStatusCompleted {
 		t.Fatalf("expected the continuation to finish from restored evidence, got %+v", secondResult)
 	}
-	if searchCallCount != 1 || deleteCallCount != 1 {
-		t.Fatalf("expected the pre-pause search to survive the continuation, got search=%d delete=%d", searchCallCount, deleteCallCount)
+	if searchCallCount != 1 || deleteCallCount != 0 {
+		t.Fatalf("expected the pre-pause search to survive the continuation without either call running again, got search=%d delete=%d", searchCallCount, deleteCallCount)
 	}
 }
 
@@ -242,5 +125,66 @@ func TestCurrentThreadSendSkipsRuntimeApproval(t *testing.T) {
 	directMessageCall := turnActionDocument{ToolName: "message_send", ToolInput: json.RawMessage(`{"targetType":"directMessage","personHint":"테스트","message":"안내"}`)}
 	if !toolCallRequiresRuntimeApproval(toolSet, directMessageCall) {
 		t.Fatal("expected an external send to keep requiring approval")
+	}
+}
+
+func TestASecondCallOnAnApprovalContinuationIsStillHeld(t *testing.T) {
+	languageModel := &sequenceLanguageModel{contents: []string{
+		directToolAction("continue", "", "task_delete", `{"taskID":"task-A"}`),
+		`{"question":"task-A를 삭제할까요?"}`,
+		directToolAction("continue", "", "task_delete", `{"taskID":"task-B"}`),
+		`{"question":"task-B도 삭제할까요?"}`,
+	}}
+	services := newTurnRunnerTestServices(languageModel, TurnOptions{MaxIterationCount: 4})
+	toolRegistry := newTestCapabilityToolSet([]string{"task_delete"})
+	invokedInputs := []string{}
+	registerTestTool(toolRegistry, toolcontract.ToolDefinition{Name: "task_delete", RequiresApproval: true}, func(_ context.Context, invocation toolcontract.ToolInvocation) (toolcontract.ToolResult, error) {
+		invokedInputs = append(invokedInputs, string(invocation.Input))
+		return testToolSuccess(`{"status":"deleted"}`), nil
+	})
+
+	firstResult, errorValue := services.runner.RunTurn(context.Background(), AgentTurnRequest{
+		RequesterPersonID: "person-1",
+		ConversationID:    "conversation-1",
+		Prompt:            "task-A 삭제해줘",
+		ResponseLanguage:  ResponseLanguageKorean,
+		ToolSet:           toolRegistry,
+		PinnedToolNames:   []string{"task_delete"},
+		WorkspaceRootPath: t.TempDir(),
+	})
+	if errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if firstResult.TaskRun.Status != taskstate.TaskStatusWaitingApproval {
+		t.Fatalf("expected the first call to be held, result=%+v", firstResult)
+	}
+	services.taskRunService.AppendTaskEvent(firstResult.TaskRun.TaskRunID, "approval.executed", `{"toolName":"task_delete","toolInput":{"taskID":"task-A"}}`)
+	if _, errorValue := services.taskRunService.AdvanceTaskRun(firstResult.TaskRun.TaskRunID, "assistant"); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+
+	continuationResult, errorValue := services.runner.RunTurn(context.Background(), AgentTurnRequest{
+		RequesterPersonID:      "person-1",
+		ExistingTaskRunID:      firstResult.TaskRun.TaskRunID,
+		IsApprovalContinuation: true,
+		ConversationID:         "conversation-1",
+		ResponseLanguage:       ResponseLanguageKorean,
+		ToolSet:                toolRegistry,
+		PinnedToolNames:        []string{"task_delete"},
+		WorkspaceRootPath:      t.TempDir(),
+		CarriedOutCalls: []CarriedOutCall{{
+			ToolName:  "task_delete",
+			ToolInput: json.RawMessage(`{"taskID":"task-A"}`),
+			Result:    testToolSuccess(`{"status":"deleted"}`),
+		}},
+	})
+	if errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if len(invokedInputs) != 0 {
+		t.Fatalf("a call the requester never saw ran on the strength of someone else's approval, invoked %+v", invokedInputs)
+	}
+	if continuationResult.TaskRun.Status != taskstate.TaskStatusWaitingApproval {
+		t.Fatalf("expected the second call to be held for its own approval, result=%+v", continuationResult)
 	}
 }
