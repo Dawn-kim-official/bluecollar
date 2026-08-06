@@ -2155,10 +2155,8 @@ func highestRecordedObservationIndex(taskEvents []taskstate.TaskEvent) int {
 		if !strings.HasPrefix(taskEvent.Name, "tool.") || !strings.HasSuffix(taskEvent.Name, ".result") {
 			continue
 		}
-		var observation struct {
-			ObservationID string `json:"observationID"`
-		}
-		if json.Unmarshal([]byte(taskEvent.Body), &observation) != nil {
+		observation, errorValue := decodeTurnObservation([]byte(taskEvent.Body))
+		if errorValue != nil || isApprovalRequiredObservation(observation) {
 			continue
 		}
 		observationIndex, isValid := observationIndexFromID(observation.ObservationID)

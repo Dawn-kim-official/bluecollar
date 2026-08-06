@@ -146,3 +146,36 @@ func TestAResumedTurnKeepsWhatItLearnedBeforeThePause(t *testing.T) {
 		t.Fatalf("a resumed turn that redoes its pre-pause work does it twice, search=%d delete=%d", searchCallCount, deleteCallCount)
 	}
 }
+
+func TestAWithheldCallDoesNotConsumeAnObservationNumber(t *testing.T) {
+	languageModel := &sequenceLanguageModel{contents: []string{
+		finishMessageDocument("삭제했습니다."),
+	}}
+	services := newTurnRunnerTestServices(languageModel, TurnOptions{MaxIterationCount: 4})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "그 일정 삭제해줘")
+	services.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "tool.calendar_delete.result", `{"observationID":"obs-001","tool":"calendar_delete","failure":{"kind":"unknown","code":"interaction_required","requiresApproval":true}}`)
+
+	services.runner.RunTurn(context.Background(), AgentTurnRequest{
+		RequesterPersonID: "person-1",
+		ExistingTaskRunID: taskRun.TaskRunID,
+		ConversationID:    "conversation-1",
+		Prompt:            "확인",
+		WorkspaceRootPath: t.TempDir(),
+		CarriedOutCalls: []CarriedOutCall{{
+			ToolName:  "calendar_delete",
+			ToolInput: json.RawMessage(`{"eventHint":"calendar-event-001"}`),
+			Result:    testToolSuccess(`{"status":"deleted"}`),
+		}},
+	})
+
+	for _, taskEvent := range services.taskEventService.ListTaskEvent(taskRun.TaskRunID) {
+		if taskEvent.Name != "tool.calendar_delete.result" || strings.Contains(taskEvent.Body, "requiresApproval") {
+			continue
+		}
+		if !strings.Contains(taskEvent.Body, `"observationID":"obs-001"`) {
+			t.Fatalf("a held attempt that keeps its number leaves a gap where the agent cites its evidence, got %s", taskEvent.Body)
+		}
+		return
+	}
+	t.Fatal("expected the carried out call to be recorded")
+}
