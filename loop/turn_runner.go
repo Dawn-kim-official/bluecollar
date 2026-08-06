@@ -2221,6 +2221,11 @@ func (agentTurnRunner *AgentTurnRunner) recordCarriedOutCalls(ctx context.Contex
 			continue
 		}
 		observationID := agentTurnRunner.nextUnusedObservationID(taskRunID, state.Observations)
+		agentTurnRunner.appendEvent(taskRunID, "tool."+toolName+".requested", marshalEventBody(map[string]any{
+			"observationID": observationID,
+			"toolName":      toolName,
+			"input":         json.RawMessage(carriedOutCall.ToolInput),
+		}))
 		observation := agentTurnRunner.saveToolObservation(
 			ctx, taskRunID, observationID, toolName, "", carriedOutCall.ToolInput, toolName,
 			canonicalToolInput(carriedOutCall.ToolInput), carriedOutCall.Result,

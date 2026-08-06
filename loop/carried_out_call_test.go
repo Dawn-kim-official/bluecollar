@@ -50,7 +50,8 @@ func promptsOf(languageModel *sequenceLanguageModel) []string {
 	return prompts
 }
 
-func TestACarriedOutCallDoesNotReuseAnObservationIDTheLedgerAlreadyHolds(t *testing.T) {
+func carriedOutDeleteTurn(t *testing.T) (turnRunnerTestServices, string) {
+	t.Helper()
 	languageModel := &sequenceLanguageModel{contents: []string{
 		finishMessageDocument("삭제했습니다."),
 	}}
@@ -70,9 +71,14 @@ func TestACarriedOutCallDoesNotReuseAnObservationIDTheLedgerAlreadyHolds(t *test
 			Result:    testToolSuccess(`{"status":"deleted"}`),
 		}},
 	})
+	return services, taskRun.TaskRunID
+}
+
+func TestACarriedOutCallDoesNotReuseAnObservationIDTheLedgerAlreadyHolds(t *testing.T) {
+	services, taskRunID := carriedOutDeleteTurn(t)
 
 	recordedResults := []string{}
-	for _, taskEvent := range services.taskEventService.ListTaskEvent(taskRun.TaskRunID) {
+	for _, taskEvent := range services.taskEventService.ListTaskEvent(taskRunID) {
 		if taskEvent.Name == "tool.calendar_delete.result" {
 			recordedResults = append(recordedResults, taskEvent.Body)
 		}
@@ -82,5 +88,13 @@ func TestACarriedOutCallDoesNotReuseAnObservationIDTheLedgerAlreadyHolds(t *test
 	}
 	if strings.Contains(recordedResults[1], `"observationID":"obs-001"`) {
 		t.Fatalf("the carried out call took an observation ID the ledger already holds, body=%s", recordedResults[1])
+	}
+}
+
+func TestACarriedOutCallIsRecordedAsACallAndNotOnlyAsAResult(t *testing.T) {
+	services, taskRunID := carriedOutDeleteTurn(t)
+
+	if !taskEventsContain(services.taskEventService.ListTaskEvent(taskRunID), "tool.calendar_delete.requested", `"eventHint":"calendar-event-001"`) {
+		t.Fatal("a carried out call that records only its result reads as a result with no call behind it")
 	}
 }
