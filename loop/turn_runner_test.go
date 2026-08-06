@@ -1417,12 +1417,26 @@ func TestSlidesRequestWithCalendarContentDoesNotPinCalendarTools(t *testing.T) {
 	}
 }
 
-func TestAgentTurnRunnerPausesBeforeRequiresApprovalDirectTool(t *testing.T) {
-	heldInput := `{"eventHint":"event-1"}`
+type holdingToolCallGate struct {
+	taskRunService *taskstate.TaskRunService
+	taskRunID      string
+	confirmation   string
+}
+
+func (gate holdingToolCallGate) ReviewToolCall(_ context.Context, _ toolcontract.ToolInvocation, toolDefinition toolcontract.ToolDefinition) (toolcontract.ToolCallReview, error) {
+	if !toolDefinition.RequiresApproval {
+		return toolcontract.ToolCallReview{MayProceed: true}, nil
+	}
+	gate.taskRunService.PauseTaskRun(gate.taskRunID, taskstate.TaskStatusWaitingApproval, gate.confirmation)
+	heldResult := toolcontract.ToolFailureResult(toolcontract.FailureUnknown, toolcontract.FailureCodes.InteractionRequired, "approval", gate.confirmation)
+	heldResult.Failure.RequiresApproval = true
+	return toolcontract.ToolCallReview{Result: heldResult}, nil
+}
+
+func TestATurnEndsWhereTheHostHeldTheCallItAskedFor(t *testing.T) {
 	languageModel := &sequenceLanguageModel{contents: []string{
-		directToolAction("continue", "", "calendar_delete", heldInput),
-		`{"question":"이 일정을 삭제할까요?"}`,
-		`{"action":"finish","message":"일정을 삭제했습니다.","replyParts":[{"type":"text","text":"일정을 삭제했습니다."}],"goalStatus":"satisfied","goalSatisfied":true,"completionEvidence":[{"observationID":"obs-001","toolName":"calendar_delete"}],"qualityReview":[]}`,
+		directToolAction("continue", "", "calendar_delete", `{"eventHint":"event-1"}`),
+		finishMessageDocument("일정을 삭제했습니다."),
 	}}
 	services := newTurnRunnerTestServices(languageModel, TurnOptions{MaxIterationCount: 4})
 	toolRegistry := newTestCapabilityToolSet([]string{"calendar_delete"})
@@ -1431,9 +1445,16 @@ func TestAgentTurnRunnerPausesBeforeRequiresApprovalDirectTool(t *testing.T) {
 		invokedInputs = append(invokedInputs, string(invocation.Input))
 		return testToolSuccess(`{"eventID":"event-1","status":"deleted"}`), nil
 	})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "일정 삭제해줘")
+	toolRegistry.UseToolCallGate(holdingToolCallGate{
+		taskRunService: services.taskRunService,
+		taskRunID:      taskRun.TaskRunID,
+		confirmation:   "이 일정을 삭제할까요?",
+	})
 
 	result, errorValue := services.runner.RunTurn(context.Background(), AgentTurnRequest{
 		RequesterPersonID: "person-1",
+		ExistingTaskRunID: taskRun.TaskRunID,
 		ConversationID:    "conversation-1",
 		Prompt:            "일정 삭제해줘",
 		ResponseLanguage:  ResponseLanguageKorean,
@@ -1441,18 +1462,18 @@ func TestAgentTurnRunnerPausesBeforeRequiresApprovalDirectTool(t *testing.T) {
 		PinnedToolNames:   []string{"calendar_delete"},
 		WorkspaceRootPath: t.TempDir(),
 	})
+
 	if errorValue != nil {
 		t.Fatalf("expected turn to complete: %v", errorValue)
 	}
-	if result.TaskRun.Status != taskstate.TaskStatusWaitingApproval {
-		t.Fatalf("expected waiting approval task, got %s events=%+v", result.TaskRun.Status, services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID))
-	}
 	if len(invokedInputs) != 0 {
-		t.Fatalf("expected direct tool execution to wait for approval, got %+v", invokedInputs)
+		t.Fatalf("a withheld call that still reaches its handler has already had the effect, got %+v", invokedInputs)
 	}
-	events := services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID)
-	if !taskEventsContain(events, "approval.pending_call", heldInput) {
-		t.Fatalf("expected direct tool approval hold, events=%+v", events)
+	if result.TaskRun.Status != taskstate.TaskStatusWaitingApproval {
+		t.Fatalf("expected the turn to end where the host paused it, got %s", result.TaskRun.Status)
+	}
+	if result.UserNotice != "이 일정을 삭제할까요?" {
+		t.Fatalf("a held turn that carries no question leaves the requester nothing to answer, got %q", result.UserNotice)
 	}
 }
 

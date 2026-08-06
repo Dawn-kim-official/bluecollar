@@ -363,6 +363,11 @@ func TestExistingTaskRunIDDoesNotAuthorizeConfirmationBypass(t *testing.T) {
 		return testToolSuccess(`{"deleted":true}`), nil
 	})
 	existingTaskRun := taskRunService.CreateTaskRun("person-1", "conversation-1", "site-1 웹사이트를 삭제해줘")
+	toolSet.UseToolCallGate(holdingToolCallGate{
+		taskRunService: taskRunService,
+		taskRunID:      existingTaskRun.TaskRunID,
+		confirmation:   "site-1 웹사이트를 삭제할까요?",
+	})
 	request := kernelTestRequest("site-1 웹사이트를 삭제해줘")
 	request.ToolSet = toolSet
 	request.ExistingTaskRunID = existingTaskRun.TaskRunID

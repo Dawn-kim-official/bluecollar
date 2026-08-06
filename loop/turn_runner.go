@@ -590,10 +590,6 @@ func (agentTurnRunner *AgentTurnRunner) handleToolCallAction(ctx context.Context
 		return outcome
 	}
 	agentTurnRunner.notePlanMissingBeforeStateChange(taskRunID, request, state, actionDocument)
-	if toolCallRequiresRuntimeApproval(request.ToolSet, actionDocument) &&
-		!agentTurnRunner.taskAlreadyApprovedScope(taskRunID, request.ToolSet, actionDocument.ToolName) {
-		return agentTurnRunner.requestHeldCallApproval(ctx, taskRunID, stepID, request, state, actionDocument)
-	}
 	state.ToolCallCount++
 	if state.ToolCallCount > maxToolCallCountWithRecovery(agentTurnRunner.options, state.Observations) {
 		result, shouldContinue, errorValue := agentTurnRunner.finalizeEscalateOrStopForLimit(ctx, taskRunID, request, "max_tool_calls", requirements, state.Observations, state.Attachments, state.QualityCriteria, state.ExecutionState, iteration, state.ToolCallCount)
@@ -611,9 +607,6 @@ func (agentTurnRunner *AgentTurnRunner) handleToolCallAction(ctx context.Context
 	observation = agentTurnRunner.resolveCalendarDuplicate(effortContext, taskRunID, observationID, request, actionDocument, observation)
 	if cancelledResult, isCancelled := agentTurnRunner.cancelledTaskResult(taskRunID, state.Attachments); isCancelled {
 		return toolCallActionOutcome{Result: cancelledResult, ShouldReturn: true, WasHandled: true}
-	}
-	if isApprovalRequiredObservation(observation) {
-		return agentTurnRunner.requestHeldCallApproval(ctx, taskRunID, stepID, request, state, actionDocument)
 	}
 	agentTurnRunner.recordToolObservation(taskRunID, state, actionDocument, successfulToolCalls, observation, recoveryStep)
 	agentTurnRunner.applyPlanUpdateObservation(taskRunID, state, observation)
@@ -726,7 +719,7 @@ func (agentTurnRunner *AgentTurnRunner) pausedTaskResult(taskRunID string, obser
 		return AgentTurnResult{}, false
 	}
 	if taskRun.Status == taskstate.TaskStatusWaitingApproval {
-		reply := approvalObservationUserFacingMessage(observation)
+		reply := firstNonEmptyString(approvalObservationUserFacingMessage(observation), taskRun.FailureReason)
 		if reply == "" {
 			agentTurnRunner.appendEvent(taskRunID, "agent.approval_user_facing_message_missing", marshalEventBody(observation))
 		}

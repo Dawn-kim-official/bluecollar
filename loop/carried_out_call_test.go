@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yeomyeonggeori/bluecollar/taskstate"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
 
@@ -96,5 +97,52 @@ func TestACarriedOutCallIsRecordedAsACallAndNotOnlyAsAResult(t *testing.T) {
 
 	if !taskEventsContain(services.taskEventService.ListTaskEvent(taskRunID), "tool.calendar_delete.requested", `"eventHint":"calendar-event-001"`) {
 		t.Fatal("a carried out call that records only its result reads as a result with no call behind it")
+	}
+}
+
+func TestAResumedTurnKeepsWhatItLearnedBeforeThePause(t *testing.T) {
+	languageModel := &sequenceLanguageModel{contents: []string{
+		finishMessageDocument("메모를 삭제했습니다."),
+	}}
+	services := newTurnRunnerTestServices(languageModel, TurnOptions{MaxIterationCount: 6})
+	toolRegistry := newTestCapabilityToolSet([]string{"message_search", "message_delete"})
+	searchCallCount := 0
+	registerTestTool(toolRegistry, toolcontract.ToolDefinition{Name: "message_search"}, func(context.Context, toolcontract.ToolInvocation) (toolcontract.ToolResult, error) {
+		searchCallCount++
+		return testToolSuccess(`{"messageIDs":["message-1"]}`), nil
+	})
+	deleteCallCount := 0
+	registerTestTool(toolRegistry, toolcontract.ToolDefinition{Name: "message_delete", RequiresApproval: true}, func(context.Context, toolcontract.ToolInvocation) (toolcontract.ToolResult, error) {
+		deleteCallCount++
+		return testToolSuccess(`{"deletedMessageIDs":["message-1"]}`), nil
+	})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "고객지원 월간회의 메모를 찾아서 삭제해줘")
+	services.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "tool.message_search.result", `{"observationID":"obs-001","action":"continue","tool":"message_search","output":{"content":"{\"messageIDs\":[\"message-1\"]}"}}`)
+
+	result, errorValue := services.runner.RunTurn(context.Background(), AgentTurnRequest{
+		RequesterPersonID:      "person-1",
+		ExistingTaskRunID:      taskRun.TaskRunID,
+		IsApprovalContinuation: true,
+		ConversationID:         "conversation-1",
+		Prompt:                 "승인",
+		ResponseLanguage:       ResponseLanguageKorean,
+		ToolSet:                toolRegistry,
+		PinnedToolNames:        toolRegistry.ListToolNames(),
+		WorkspaceRootPath:      t.TempDir(),
+		CarriedOutCalls: []CarriedOutCall{{
+			ToolName:  "message_delete",
+			ToolInput: json.RawMessage(`{"messageIDs":["message-1"]}`),
+			Result:    testToolSuccess(`{"deletedMessageIDs":["message-1"]}`),
+		}},
+	})
+
+	if errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if result.TaskRun.Status != taskstate.TaskStatusCompleted {
+		t.Fatalf("expected the continuation to finish from restored evidence, got %+v", result)
+	}
+	if searchCallCount != 0 || deleteCallCount != 0 {
+		t.Fatalf("a resumed turn that redoes its pre-pause work does it twice, search=%d delete=%d", searchCallCount, deleteCallCount)
 	}
 }

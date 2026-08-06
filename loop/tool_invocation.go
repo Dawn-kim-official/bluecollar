@@ -307,3 +307,7 @@ func toolResultImageRefs(observationID string, attachments []toolcontract.FileAt
 	}
 	return imageRefs
 }
+
+func isApprovalRequiredObservation(observation turnObservation) bool {
+	return observation.Failed() && observation.Failure.RequiresApproval
+}
