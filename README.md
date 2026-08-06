@@ -132,6 +132,34 @@ go test -run 'Checkpoint|Resume|Approval' -v .
   and the turn picks it up on its next step. The protocol has no construct for that: a second
   `session/prompt` cancels the first, and `session/cancel` is the only client-to-agent message
   during a turn. Until one is designed, a steer reaches only an in-process host.
+## Measuring the harness
+
+An agent is a model and a harness together, so a benchmark score alone does not
+say which half earned it. [`bench`](./bench) exists to attribute the difference:
+hold the model, the task and the verifier fixed, swap only the harness, and what
+moves is the harness.
+
+The numbers come out of the event ledger a turn already writes, so a measured
+run is the run that ran.
+
+| what it reports | why it is there |
+|---|---|
+| prompt tokens per turn | what a harness puts in front of the model is the thing a pass rate hides |
+| turns, tool calls, failed tool calls | how much work it took to get there |
+| approval holds | held calls are the point of an unattended harness, so they are counted apart from failures |
+| recovery attempts | whether it got itself out of trouble or thrashed |
+| cost per **passed** task | a harness that burns money failing is not the cheap one |
+| wall clock, model latency | how much of the wait was the model and how much was the loop |
+
+A verdict is never inferred here. `Runner` drives tasks through
+`agentcontract.Harness` and asks the benchmark's own verifier. A task nobody
+checked stays `unverified`, and a verifier that cannot decide counts against
+the harness.
+
+Because the port is the only thing `Runner` needs, any harness that implements
+`RunTurn` goes on the same row — including the ones this one is measured
+against, once an adapter speaks for them.
+
 ## Building and testing
 
 The module depends on one library and nothing outside its own directory. The ACP
