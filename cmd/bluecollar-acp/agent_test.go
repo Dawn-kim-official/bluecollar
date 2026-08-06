@@ -61,7 +61,7 @@ func publishedCatalog(t *testing.T, calls *[]hostToolCall) *mcp.Server {
 type hostClient struct {
 	mutex        sync.Mutex
 	agentMessage string
-	ledger       []ledgerRecord
+	ledger       []agentcontract.LedgerRecord
 	toolCalls    []acp.ToolCallId
 }
 
@@ -80,10 +80,10 @@ func (client *hostClient) SessionUpdate(_ context.Context, notification acp.Sess
 	return nil
 }
 
-func (client *hostClient) keptLedger() []ledgerRecord {
+func (client *hostClient) keptLedger() []agentcontract.LedgerRecord {
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
-	return append([]ledgerRecord{}, client.ledger...)
+	return append([]agentcontract.LedgerRecord{}, client.ledger...)
 }
 
 func (client *hostClient) ledgerEventNames() []string {
@@ -96,23 +96,23 @@ func (client *hostClient) ledgerEventNames() []string {
 	return names
 }
 
-func ledgerRecordOfMeta(update acp.SessionUpdate) (ledgerRecord, bool) {
+func ledgerRecordOfMeta(update acp.SessionUpdate) (agentcontract.LedgerRecord, bool) {
 	for _, meta := range []map[string]any{
 		metaOf(update.ToolCall), metaOf(update.ToolCallUpdate), metaOf(update.AgentThoughtChunk),
 	} {
 		if meta == nil {
 			continue
 		}
-		encoded, errorValue := json.Marshal(meta[ledgerMetaKey])
+		encoded, errorValue := json.Marshal(meta[agentcontract.LedgerMetaKey])
 		if errorValue != nil {
 			continue
 		}
-		record := ledgerRecord{}
+		record := agentcontract.LedgerRecord{}
 		if json.Unmarshal(encoded, &record) == nil && record.Name != "" {
 			return record, true
 		}
 	}
-	return ledgerRecord{}, false
+	return agentcontract.LedgerRecord{}, false
 }
 
 func metaOf(update any) map[string]any {
@@ -340,7 +340,7 @@ func TestAHostHandsBackTheLedgerItKept(t *testing.T) {
 	resumedLanguageModel := &scriptedLanguageModel{contents: []string{
 		`{"action":"finish","message":"이미 남겼습니다","goalSatisfied":true,"completionEvidenceIDs":["obs-001"]}`,
 	}}
-	driveOneTurnWithMeta(t, publishedCatalogTransport(t, &hostCalls), resumedLanguageModel, map[string]any{ledgerMetaKey: keptLedger})
+	driveOneTurnWithMeta(t, publishedCatalogTransport(t, &hostCalls), resumedLanguageModel, map[string]any{agentcontract.LedgerMetaKey: keptLedger})
 
 	if !containsSubstring(resumedLanguageModel.actionPrompts, "note written") {
 		t.Fatalf("a turn resumed on a ledger the host kept has to see what already ran, got prompts %d", len(resumedLanguageModel.actionPrompts))
@@ -374,7 +374,7 @@ func TestAHostSaysWhatItCarriedOutAndTheTurnSeesIt(t *testing.T) {
 	}}
 
 	driveOneTurnWithMeta(t, publishedCatalogTransport(t, &hostCalls), languageModel, map[string]any{
-		carriedOutCallMetaKey: []agentcontract.CarriedOutCall{{
+		agentcontract.CarriedOutCallMetaKey: []agentcontract.CarriedOutCall{{
 			ToolName:  "note_write",
 			ToolInput: json.RawMessage(`{"text":"회의록"}`),
 			Result:    toolcontract.ToolSuccessData("note written by the host", json.RawMessage(`{}`)),
