@@ -49,3 +49,38 @@ func promptsOf(languageModel *sequenceLanguageModel) []string {
 	}
 	return prompts
 }
+
+func TestACarriedOutCallDoesNotReuseAnObservationIDTheLedgerAlreadyHolds(t *testing.T) {
+	languageModel := &sequenceLanguageModel{contents: []string{
+		finishMessageDocument("삭제했습니다."),
+	}}
+	services := newTurnRunnerTestServices(languageModel, TurnOptions{MaxIterationCount: 4})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "그 일정 삭제해줘")
+	services.taskRunService.AppendTaskEvent(taskRun.TaskRunID, "tool.calendar_delete.result", `{"observationID":"obs-001","tool":"calendar_delete"}`)
+
+	services.runner.RunTurn(context.Background(), AgentTurnRequest{
+		RequesterPersonID: "person-1",
+		ExistingTaskRunID: taskRun.TaskRunID,
+		ConversationID:    "conversation-1",
+		Prompt:            "확인",
+		WorkspaceRootPath: t.TempDir(),
+		CarriedOutCalls: []CarriedOutCall{{
+			ToolName:  "calendar_delete",
+			ToolInput: json.RawMessage(`{"eventHint":"calendar-event-001"}`),
+			Result:    testToolSuccess(`{"status":"deleted"}`),
+		}},
+	})
+
+	recordedResults := []string{}
+	for _, taskEvent := range services.taskEventService.ListTaskEvent(taskRun.TaskRunID) {
+		if taskEvent.Name == "tool.calendar_delete.result" {
+			recordedResults = append(recordedResults, taskEvent.Body)
+		}
+	}
+	if len(recordedResults) != 2 {
+		t.Fatalf("expected the seeded observation and the carried out one, got %+v", recordedResults)
+	}
+	if strings.Contains(recordedResults[1], `"observationID":"obs-001"`) {
+		t.Fatalf("the carried out call took an observation ID the ledger already holds, body=%s", recordedResults[1])
+	}
+}

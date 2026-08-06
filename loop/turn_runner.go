@@ -2148,6 +2148,34 @@ func nextObservationIDForObservations(observations []turnObservation) string {
 	return nextObservationID(nextObservationIndex(observations))
 }
 
+func (agentTurnRunner *AgentTurnRunner) nextUnusedObservationID(taskRunID string, observations []turnObservation) string {
+	highestObservationIndex := highestRecordedObservationIndex(agentTurnRunner.taskRunService.ListTaskEvent(taskRunID))
+	if inFlightIndex := nextObservationIndex(observations) - 1; inFlightIndex > highestObservationIndex {
+		highestObservationIndex = inFlightIndex
+	}
+	return nextObservationID(highestObservationIndex + 1)
+}
+
+func highestRecordedObservationIndex(taskEvents []taskstate.TaskEvent) int {
+	highestObservationIndex := 0
+	for _, taskEvent := range taskEvents {
+		if !strings.HasPrefix(taskEvent.Name, "tool.") || !strings.HasSuffix(taskEvent.Name, ".result") {
+			continue
+		}
+		var observation struct {
+			ObservationID string `json:"observationID"`
+		}
+		if json.Unmarshal([]byte(taskEvent.Body), &observation) != nil {
+			continue
+		}
+		observationIndex, isValid := observationIndexFromID(observation.ObservationID)
+		if isValid && observationIndex > highestObservationIndex {
+			highestObservationIndex = observationIndex
+		}
+	}
+	return highestObservationIndex
+}
+
 func observationIndexFromID(observationID string) (int, bool) {
 	trimmedObservationID := strings.TrimSpace(observationID)
 	if !strings.HasPrefix(trimmedObservationID, "obs-") {
@@ -2192,7 +2220,7 @@ func (agentTurnRunner *AgentTurnRunner) recordCarriedOutCalls(ctx context.Contex
 		if toolName == "" {
 			continue
 		}
-		observationID := nextObservationIDForObservations(state.Observations)
+		observationID := agentTurnRunner.nextUnusedObservationID(taskRunID, state.Observations)
 		observation := agentTurnRunner.saveToolObservation(
 			ctx, taskRunID, observationID, toolName, "", carriedOutCall.ToolInput, toolName,
 			canonicalToolInput(carriedOutCall.ToolInput), carriedOutCall.Result,
