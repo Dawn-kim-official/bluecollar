@@ -53,7 +53,22 @@ var terminalRunOutputSchema = json.RawMessage(`{
   "additionalProperties": false
 }`)
 
-func newWorkspaceToolSet(workspacePath string) *toolcontract.ToolSet {
+type shell struct {
+	workingDirectoryPath string
+	commandPrefix        []string
+}
+
+func (runningShell shell) command(ctx context.Context, command string) *exec.Cmd {
+	if len(runningShell.commandPrefix) == 0 {
+		shellCommand := exec.CommandContext(ctx, "sh", "-c", command)
+		shellCommand.Dir = runningShell.workingDirectoryPath
+		return shellCommand
+	}
+	arguments := append(append([]string{}, runningShell.commandPrefix[1:]...), "sh", "-c", command)
+	return exec.CommandContext(ctx, runningShell.commandPrefix[0], arguments...)
+}
+
+func newWorkspaceToolSet(runningShell shell) *toolcontract.ToolSet {
 	toolSet := toolcontract.NewToolSet([]string{toolcontract.TerminalRunToolName})
 	toolcontract.RegisterToolFunction(toolSet, toolcontract.ToolFunction[terminalRunInput, toolcontract.ToolResult]{
 		Definition: toolcontract.ToolDefinition{
@@ -67,14 +82,14 @@ func newWorkspaceToolSet(workspacePath string) *toolcontract.ToolSet {
 			SideEffectClass: toolcontract.ToolSideEffectStateChange,
 		},
 		Handler: func(toolContext context.Context, input terminalRunInput) (toolcontract.ToolResult, error) {
-			return runShellCommand(toolContext, workspacePath, input), nil
+			return runShellCommand(toolContext, runningShell, input), nil
 		},
 		Result: toolcontract.IdentityToolResult,
 	})
 	return toolSet
 }
 
-func runShellCommand(ctx context.Context, workingDirectoryPath string, input terminalRunInput) toolcontract.ToolResult {
+func runShellCommand(ctx context.Context, runningShell shell, input terminalRunInput) toolcontract.ToolResult {
 	command := strings.TrimSpace(input.Command)
 	if command == "" {
 		return toolcontract.ToolFailureResult(toolcontract.FailureInvalidInput, toolcontract.FailureCodes.InvalidInput, "terminal_run", "a command is required")
@@ -87,8 +102,7 @@ func runShellCommand(ctx context.Context, workingDirectoryPath string, input ter
 	defer cancel()
 
 	capturedOutput := &bytes.Buffer{}
-	shellCommand := exec.CommandContext(commandContext, "sh", "-c", command)
-	shellCommand.Dir = workingDirectoryPath
+	shellCommand := runningShell.command(commandContext, command)
 	shellCommand.Stdout = capturedOutput
 	shellCommand.Stderr = capturedOutput
 	runError := shellCommand.Run()

@@ -13,7 +13,12 @@ import (
 
 func invokeTerminalRun(t *testing.T, workspacePath string, input string) toolcontract.ToolResult {
 	t.Helper()
-	toolSet := newWorkspaceToolSet(workspacePath)
+	return invokeTerminalRunThrough(t, shell{workingDirectoryPath: workspacePath}, input)
+}
+
+func invokeTerminalRunThrough(t *testing.T, runningShell shell, input string) toolcontract.ToolResult {
+	t.Helper()
+	toolSet := newWorkspaceToolSet(runningShell)
 	result, errorValue := toolSet.Invoke(context.Background(), toolcontract.ToolInvocation{
 		ToolName: toolcontract.TerminalRunToolName,
 		Input:    json.RawMessage(input),
@@ -121,5 +126,16 @@ func TestACommandTheModelMarkedForApprovalIsRefusedRatherThanRunUnasked(t *testi
 	}
 	if !strings.Contains(result.UserSafeFailureSummary(), "nobody to ask") {
 		t.Fatalf("expected the agent to learn why, got %q", result.UserSafeFailureSummary())
+	}
+}
+
+func TestAWrappedShellRunsTheCommandThroughTheSandboxItWasGiven(t *testing.T) {
+	result := invokeTerminalRunThrough(t, shell{commandPrefix: []string{"env", "BLUECOLLAR_SANDBOX=yes"}}, `{"command":"echo $BLUECOLLAR_SANDBOX"}`)
+
+	if result.Failed() {
+		t.Fatalf("expected the wrapped command to run, got %+v", result)
+	}
+	if !strings.Contains(decodedOutput(t, result).Output, "yes") {
+		t.Fatalf("a prefix that is not actually in front of the command sends the agent to the wrong machine, got %+v", result)
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/yeomyeonggeori/bluecollar/agentcontract"
+	"github.com/yeomyeonggeori/bluecollar/bench"
 	"github.com/yeomyeonggeori/bluecollar/intake"
 	"github.com/yeomyeonggeori/bluecollar/loop"
 	"github.com/yeomyeonggeori/bluecollar/model/openaicompatible"
@@ -24,6 +26,8 @@ func main() {
 	timeout := flag.Duration("timeout", 5*time.Minute, "how long one turn may run")
 	workspacePath := flag.String("workspace", ".", "directory the agent's shell commands run in")
 	withoutTools := flag.Bool("without-tools", false, "answer from reasoning alone, giving the agent no shell")
+	execPrefix := flag.String("exec-prefix", "", "run every shell command through this wrapper, such as \"docker exec -i <container>\"")
+	metricsPath := flag.String("metrics", "", "write what this turn cost, as JSON, to this path")
 	flag.Parse()
 
 	prompt := strings.TrimSpace(strings.Join(flag.Args(), " "))
@@ -41,6 +45,8 @@ func main() {
 		timeout:       *timeout,
 		workspacePath: *workspacePath,
 		withoutTools:  *withoutTools,
+		execPrefix:    *execPrefix,
+		metricsPath:   *metricsPath,
 	})
 	if errorValue != nil {
 		fmt.Fprintln(os.Stderr, "bluecollar:", errorValue)
@@ -58,6 +64,8 @@ type runOptions struct {
 	timeout       time.Duration
 	workspacePath string
 	withoutTools  bool
+	execPrefix    string
+	metricsPath   string
 }
 
 func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
@@ -80,14 +88,15 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 		ToolSet:           turnToolSet(options),
 	}
 
-	turnDecision, errorValue := routeTurn(turnContext, languageModel, request)
-	if errorValue != nil {
-		return agentcontract.AgentTurnResult{}, errorValue
+	if turnDecision, routingError := routeTurn(turnContext, languageModel, request); routingError == nil {
+		request.PrecomputedTurnDecision = &turnDecision
+	} else {
+		fmt.Fprintln(os.Stderr, "bluecollar: routing the turn failed, running it unrouted:", routingError)
 	}
-	request.PrecomputedTurnDecision = &turnDecision
 
 	result, errorValue := kernel.RunTurn(turnContext, request)
 	printLedger(taskRunService, result.TaskRun.TaskRunID)
+	writeMetrics(options.metricsPath, taskRunService, result.TaskRun.TaskRunID)
 	return result, errorValue
 }
 
@@ -116,6 +125,8 @@ func routeTurn(ctx context.Context, languageModel *openaicompatible.Provider, re
 		RequesterName:     request.RequesterName,
 		ConversationID:    request.ConversationID,
 		Prompt:            request.Prompt,
+		WorkspaceRootPath: request.WorkspaceRootPath,
+		ToolSet:           request.ToolSet,
 	})
 }
 
@@ -154,5 +165,23 @@ func turnToolSet(options runOptions) *toolcontract.ToolSet {
 	if options.withoutTools {
 		return nil
 	}
-	return newWorkspaceToolSet(options.workspacePath)
+	return newWorkspaceToolSet(shell{
+		workingDirectoryPath: options.workspacePath,
+		commandPrefix:        strings.Fields(options.execPrefix),
+	})
+}
+
+func writeMetrics(metricsPath string, taskRunService *taskstate.TaskRunService, taskRunID string) {
+	if strings.TrimSpace(metricsPath) == "" {
+		return
+	}
+	metrics := bench.MeasureTaskRun(taskRunID, taskRunService.ListTaskEvent(taskRunID))
+	document, errorValue := json.MarshalIndent(metrics, "", "  ")
+	if errorValue != nil {
+		fmt.Fprintln(os.Stderr, "bluecollar: could not measure the turn:", errorValue)
+		return
+	}
+	if writeError := os.WriteFile(metricsPath, document, 0o644); writeError != nil {
+		fmt.Fprintln(os.Stderr, "bluecollar: could not write the measurements:", writeError)
+	}
 }
