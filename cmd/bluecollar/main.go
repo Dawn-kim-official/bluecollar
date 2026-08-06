@@ -13,6 +13,7 @@ import (
 	"github.com/yeomyeonggeori/bluecollar/loop"
 	"github.com/yeomyeonggeori/bluecollar/model/openaicompatible"
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
+	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
 
 func main() {
@@ -21,6 +22,8 @@ func main() {
 	modelName := flag.String("model", envOrDefault("BLUECOLLAR_MODEL", "qwen3"), "model to ask")
 	agentName := flag.String("agent-name", "the assistant", "what the agent calls itself")
 	timeout := flag.Duration("timeout", 5*time.Minute, "how long one turn may run")
+	workspacePath := flag.String("workspace", ".", "directory the agent's shell commands run in")
+	withoutTools := flag.Bool("without-tools", false, "answer from reasoning alone, giving the agent no shell")
 	flag.Parse()
 
 	prompt := strings.TrimSpace(strings.Join(flag.Args(), " "))
@@ -29,7 +32,16 @@ func main() {
 		os.Exit(2)
 	}
 
-	result, errorValue := runOneTurn(*endpointURL, *apiKey, *modelName, *agentName, prompt, *timeout)
+	result, errorValue := runOneTurn(runOptions{
+		endpointURL:   *endpointURL,
+		apiKey:        *apiKey,
+		modelName:     *modelName,
+		agentName:     *agentName,
+		prompt:        prompt,
+		timeout:       *timeout,
+		workspacePath: *workspacePath,
+		withoutTools:  *withoutTools,
+	})
 	if errorValue != nil {
 		fmt.Fprintln(os.Stderr, "bluecollar:", errorValue)
 		os.Exit(1)
@@ -37,22 +49,35 @@ func main() {
 	printResult(result)
 }
 
-func runOneTurn(endpointURL string, apiKey string, modelName string, agentName string, prompt string, timeout time.Duration) (agentcontract.AgentTurnResult, error) {
-	languageModel := openaicompatible.NewProvider(endpointURL, apiKey, modelName)
+type runOptions struct {
+	endpointURL   string
+	apiKey        string
+	modelName     string
+	agentName     string
+	prompt        string
+	timeout       time.Duration
+	workspacePath string
+	withoutTools  bool
+}
+
+func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
+	languageModel := openaicompatible.NewProvider(options.endpointURL, options.apiKey, options.modelName)
 	taskEventService := taskstate.NewTaskEventService()
 	taskRunService := taskstate.NewTaskRunService(taskEventService)
 	kernel := loop.NewAgentKernel(taskRunService, taskstate.NewTaskStepService())
 	kernel.UseLanguageModelProvider(languageModel)
 
-	turnContext, cancel := context.WithTimeout(context.Background(), timeout)
+	turnContext, cancel := context.WithTimeout(context.Background(), options.timeout)
 	defer cancel()
 
 	request := agentcontract.AgentTurnRequest{
 		RequesterPersonID: "person-local",
 		RequesterName:     currentUserName(),
 		ConversationID:    "conversation-local",
-		Prompt:            prompt,
-		AgentIdentity:     agentcontract.AgentIdentity{Name: agentName},
+		Prompt:            options.prompt,
+		AgentIdentity:     agentcontract.AgentIdentity{Name: options.agentName},
+		WorkspaceRootPath: options.workspacePath,
+		ToolSet:           turnToolSet(options),
 	}
 
 	turnDecision, errorValue := routeTurn(turnContext, languageModel, request)
@@ -123,4 +148,11 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func turnToolSet(options runOptions) *toolcontract.ToolSet {
+	if options.withoutTools {
+		return nil
+	}
+	return newWorkspaceToolSet(options.workspacePath)
 }

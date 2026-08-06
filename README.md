@@ -86,7 +86,9 @@ usage accounting bring their own; the reference is an [AI SDK](https://ai-sdk.de
 ## Running it
 
 `cmd/bluecollar` runs one turn against a local model and prints the ledger to stderr, which is the
-shortest way to see the loop work before embedding it.
+shortest way to see the loop work before embedding it. It brings a shell scoped to `--workspace`,
+so the same command is what an external benchmark drives; `--without-tools` takes the shell away
+again when you only want to watch the loop reason.
 
 ```bash
 ollama serve &
@@ -102,8 +104,8 @@ agent.action  {"action":"finish"…
 task.completed
 ```
 
-It has no tools. The loop reasons and answers, and every step is still a ledger entry — which is the
-point of reading it: the same events appear whether the turn calls fifty tools or none.
+Every step is a ledger entry, which is the point of reading it: the same events appear whether the
+turn calls fifty tools or none.
 
 ## What it promises
 
@@ -117,7 +119,8 @@ go test -run 'Checkpoint|Resume|Approval' -v .
 
 ## What is not here yet
 
-- Tools in the standalone runner. It reasons and answers; a host supplies the tool set.
+- A tool set worth the name in the standalone runner. `cmd/bluecollar` brings one shell, which is
+  enough to be put on a terminal benchmark and no more; anything richer belongs to a host.
   `cmd/bluecollar-acp` takes its tool set from the MCP servers the host names when it opens a
   session, so a host that publishes a catalog gives the loop everything it can do. The event
   ledger reaches that host on `session/update`: tool calls as the standard variants a generic
