@@ -39,7 +39,7 @@ watch, a coding agent is the better tool.
 host  ──── agentcontract.Harness ────  bluecollar
   │                                        │
   │ owns: tools, identity, task store,     │ owns: the turn loop, skills,
-  │       routing, process isolation       │       approvals, completion judgment
+  │       routing, approvals, isolation    │       completion judgment
   │                                        │
   └──────── executes every tool call ──────┘
 ```
@@ -132,12 +132,6 @@ go test -run 'Checkpoint|Resume|Approval' -v .
   and the turn picks it up on its next step. The protocol has no construct for that: a second
   `session/prompt` cancels the first, and `session/cancel` is the only client-to-agent message
   during a turn. Until one is designed, a steer reaches only an in-process host.
-- Approvals in the host, where the ownership split above puts them. Half of that has moved: what
-  happens after the requester answers is the host's, which carries the approved call out and hands
-  the result over as a `CarriedOutCall`. The hold is still here — the loop reads
-  `RequiresApproval` off the descriptor, writes the pending call and pauses the run — so a host
-  that also gates its own catalog runs two implementations of one boundary.
-
 ## Building and testing
 
 The module depends on one library and nothing outside its own directory. The ACP
