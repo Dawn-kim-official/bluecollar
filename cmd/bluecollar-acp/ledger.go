@@ -10,16 +10,6 @@ import (
 	"github.com/yeomyeonggeori/bluecollar/taskstate"
 )
 
-const (
-	ledgerMetaKey         = "bluecollar.dev/ledger"
-	carriedOutCallMetaKey = "bluecollar.dev/carried-out"
-)
-
-type ledgerRecord struct {
-	Name string          `json:"name"`
-	Body json.RawMessage `json:"body,omitempty"`
-}
-
 type sessionUpdateSender interface {
 	SessionUpdate(context.Context, acp.SessionNotification) error
 }
@@ -64,14 +54,14 @@ func sessionUpdateForEvent(rawTurnEvent taskstate.RawTurnEvent) acp.SessionUpdat
 }
 
 func ledgerMeta(rawTurnEvent taskstate.RawTurnEvent) map[string]any {
-	record := ledgerRecord{Name: rawTurnEvent.Name}
+	record := agentcontract.LedgerRecord{Name: rawTurnEvent.Name}
 	if json.Valid([]byte(rawTurnEvent.Body)) {
 		record.Body = json.RawMessage(rawTurnEvent.Body)
 	} else {
 		quoted, _ := json.Marshal(rawTurnEvent.Body)
 		record.Body = quoted
 	}
-	return map[string]any{ledgerMetaKey: record}
+	return map[string]any{agentcontract.LedgerMetaKey: record}
 }
 
 func toolNameOfEvent(eventName string, suffix string) (string, bool) {
@@ -120,8 +110,8 @@ func replayLedger(openSession *session, promptMeta map[string]any) bool {
 	return true
 }
 
-func ledgerRecordsOfMeta(promptMeta map[string]any) ([]ledgerRecord, bool) {
-	value, isPresent := promptMeta[ledgerMetaKey]
+func ledgerRecordsOfMeta(promptMeta map[string]any) ([]agentcontract.LedgerRecord, bool) {
+	value, isPresent := promptMeta[agentcontract.LedgerMetaKey]
 	if !isPresent {
 		return nil, false
 	}
@@ -129,7 +119,7 @@ func ledgerRecordsOfMeta(promptMeta map[string]any) ([]ledgerRecord, bool) {
 	if errorValue != nil {
 		return nil, false
 	}
-	records := []ledgerRecord{}
+	records := []agentcontract.LedgerRecord{}
 	if json.Unmarshal(encoded, &records) != nil {
 		return nil, false
 	}
@@ -137,7 +127,7 @@ func ledgerRecordsOfMeta(promptMeta map[string]any) ([]ledgerRecord, bool) {
 }
 
 func carriedOutCallsOfMeta(promptMeta map[string]any) []agentcontract.CarriedOutCall {
-	value, isPresent := promptMeta[carriedOutCallMetaKey]
+	value, isPresent := promptMeta[agentcontract.CarriedOutCallMetaKey]
 	if !isPresent {
 		return nil
 	}
