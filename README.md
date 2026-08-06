@@ -132,10 +132,11 @@ go test -run 'Checkpoint|Resume|Approval' -v .
   and the turn picks it up on its next step. The protocol has no construct for that: a second
   `session/prompt` cancels the first, and `session/cancel` is the only client-to-agent message
   during a turn. Until one is designed, a steer reaches only an in-process host.
-- Approvals in the host, where the ownership split above puts them. The loop still holds its own:
-  it writes the pending call, pauses the run, and replays the held call verbatim on the next turn.
-  A host that drives an external agent already runs a gate of its own, so today there are two
-  implementations of one boundary and the configured harness picks which runs.
+- Approvals in the host, where the ownership split above puts them. Half of that has moved: what
+  happens after the requester answers is the host's, which carries the approved call out and hands
+  the result over as a `CarriedOutCall`. The hold is still here — the loop reads
+  `RequiresApproval` off the descriptor, writes the pending call and pauses the run — so a host
+  that also gates its own catalog runs two implementations of one boundary.
 
 ## Building and testing
 

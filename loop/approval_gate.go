@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/yeomyeonggeori/bluecollar/model"
@@ -17,11 +16,6 @@ type approvalHeldCall struct {
 	ToolName     string          `json:"toolName"`
 	ToolInput    json.RawMessage `json:"toolInput"`
 	Confirmation string          `json:"confirmation"`
-}
-
-type approvalExecutedCall struct {
-	ToolName  string          `json:"toolName"`
-	ToolInput json.RawMessage `json:"toolInput,omitempty"`
 }
 
 func isApprovalRequiredObservation(observation turnObservation) bool {
@@ -76,134 +70,6 @@ func (agentTurnRunner *AgentTurnRunner) requestHeldCallApproval(ctx context.Cont
 	}
 }
 
-func (agentTurnRunner *AgentTurnRunner) executeApprovedHeldCall(ctx context.Context, taskRunID string, request AgentTurnRequest, state *agentTaskState, successfulToolCalls map[string]turnObservation) (AgentTurnRequest, AgentTurnResult, bool) {
-	taskEvents := agentTurnRunner.taskRunService.ListTaskEvent(taskRunID)
-	heldCall, isFound := pendingApprovalHeldCall(taskEvents)
-	if !isFound {
-		return request, AgentTurnResult{}, false
-	}
-	request = requestWithHeldCallTool(request, heldCall.ToolName)
-	request.HadApprovedHeldCall = true
-	request.ApprovedHeldCallKey = canonicalToolCallKey(heldCall.ToolName, heldCall.ToolInput)
-	state.Request = request
-	actionDocument := turnActionDocument{
-		Action:    "continue",
-		ToolName:  heldCall.ToolName,
-		ToolInput: copyJSONRawMessage(heldCall.ToolInput),
-	}
-	stepID := taskRunID + ":approval-continuation"
-	agentTurnRunner.saveStep(taskRunID, stepID, taskstate.TaskStatusRunning, "approval "+heldCall.ToolName, heldCall.Confirmation)
-	state.ToolCallCount++
-	observationID := nextApprovalExecutionObservationID(taskEvents)
-	executionToolSet := toolSetWithApprovedHeldCall(request.ToolSet, heldCall.ToolName)
-	observation := agentTurnRunner.invokeTool(ctx, executionToolSet, taskRunID, observationID, heldCall.ToolName, heldCall.ToolInput, request.WorkspaceRootPath, request.TurnStartedAt, request.ResponseLanguage, "")
-	agentTurnRunner.recordToolObservation(taskRunID, state, actionDocument, successfulToolCalls, observation, "")
-	agentTurnRunner.appendEvent(taskRunID, "approval.executed", marshalEventBody(approvalExecutedCall{ToolName: heldCall.ToolName, ToolInput: copyJSONRawMessage(heldCall.ToolInput)}))
-	request.ApprovedHeldCallKey = ""
-	state.Request = request
-	if pausedResult, isPaused := agentTurnRunner.pausedTaskResult(taskRunID, observation, state.Attachments); isPaused {
-		agentTurnRunner.saveStep(taskRunID, stepID, pausedResult.TaskRun.Status, "approval "+heldCall.ToolName, observation.ContentText())
-		return request, pausedResult, true
-	}
-	agentTurnRunner.saveStep(taskRunID, stepID, taskstate.TaskStatusCompleted, "approval "+heldCall.ToolName, observation.ContentText())
-	return request, AgentTurnResult{}, false
-}
-
-func toolSetWithApprovedHeldCall(toolSet *toolcontract.ToolSet, toolName string) *toolcontract.ToolSet {
-	trimmedToolName := strings.TrimSpace(toolName)
-	if toolSet == nil || !toolSet.IsRegistered(trimmedToolName) {
-		return toolSet
-	}
-	allowedToolNames := append(toolSet.ListToolNames(), trimmedToolName)
-	return toolSet.WithAllowedToolNames(appendUniqueStrings(allowedToolNames))
-}
-
-func nextApprovalExecutionObservationID(taskEvents []taskstate.TaskEvent) string {
-	highestObservationIndex := 0
-	for _, taskEvent := range taskEvents {
-		if strings.HasPrefix(taskEvent.Name, "tool.") && strings.HasSuffix(taskEvent.Name, ".result") {
-			var observation struct {
-				ObservationID string `json:"observationID"`
-			}
-			if json.Unmarshal([]byte(taskEvent.Body), &observation) != nil {
-				continue
-			}
-			observationIndex, isValid := observationIndexFromID(observation.ObservationID)
-			if isValid && observationIndex > highestObservationIndex {
-				highestObservationIndex = observationIndex
-			}
-		}
-	}
-	return nextObservationID(highestObservationIndex + 1)
-}
-
-func observationIndexFromID(observationID string) (int, bool) {
-	trimmedObservationID := strings.TrimSpace(observationID)
-	if !strings.HasPrefix(trimmedObservationID, "obs-") {
-		return 0, false
-	}
-	observationIndex, errorValue := strconv.Atoi(strings.TrimPrefix(trimmedObservationID, "obs-"))
-	return observationIndex, errorValue == nil
-}
-
-func requestWithHeldCallTool(request AgentTurnRequest, toolName string) AgentTurnRequest {
-	trimmedToolName := strings.TrimSpace(toolName)
-	if trimmedToolName == "" || toolAvailableForAction(request.ToolSet, trimmedToolName) {
-		return request
-	}
-	request.PinnedToolNames = appendUniqueStrings(request.PinnedToolNames, trimmedToolName)
-	request, _ = applyToolRequest(request, requestToolsArguments{ToolNames: []string{trimmedToolName}})
-	return request
-}
-
-func pendingApprovalHeldCall(taskEvents []taskstate.TaskEvent) (approvalHeldCall, bool) {
-	for index := len(taskEvents) - 1; index >= 0; index-- {
-		taskEvent := taskEvents[index]
-		if taskEvent.Name != "approval.pending_call" {
-			continue
-		}
-		heldCall, isValid := approvalHeldCallFromEvent(taskEvent)
-		if !isValid || approvalHeldCallExecutedAfter(taskEvents[index+1:], heldCall.ToolName) {
-			continue
-		}
-		return heldCall, true
-	}
-	return approvalHeldCall{}, false
-}
-
-func approvalHeldCallFromEvent(taskEvent taskstate.TaskEvent) (approvalHeldCall, bool) {
-	var heldCall approvalHeldCall
-	if errorValue := json.Unmarshal([]byte(taskEvent.Body), &heldCall); errorValue != nil {
-		return approvalHeldCall{}, false
-	}
-	heldCall.ToolName = strings.TrimSpace(heldCall.ToolName)
-	heldCall.Confirmation = strings.TrimSpace(heldCall.Confirmation)
-	if heldCall.ToolName == "" {
-		return approvalHeldCall{}, false
-	}
-	heldCall.ToolInput = copyJSONRawMessage(heldCall.ToolInput)
-	return heldCall, true
-}
-
-func approvalHeldCallExecutedAfter(taskEvents []taskstate.TaskEvent, toolName string) bool {
-	for _, taskEvent := range taskEvents {
-		if taskEvent.Name != "approval.executed" {
-			continue
-		}
-		var executedCall approvalExecutedCall
-		if errorValue := json.Unmarshal([]byte(taskEvent.Body), &executedCall); errorValue != nil {
-			continue
-		}
-		if strings.TrimSpace(executedCall.ToolName) == strings.TrimSpace(toolName) {
-			return true
-		}
-	}
-	return false
-}
-
-// A tool that names an approval scope belongs to a family the user approves once
-// per task. Everything else - a send, a delete - stays a per-call decision, because
-// approving one of those must never stand in for approving the next.
 func approvalScopeForTool(toolSet *toolcontract.ToolSet, toolName string) string {
 	definition, isFound := toolSet.ToolDefinition(strings.TrimSpace(toolName))
 	if !isFound {
@@ -260,25 +126,6 @@ func toolCallRequiresRuntimeApproval(toolSet *toolcontract.ToolSet, actionDocume
 func sendHasReplyBlastRadius(definition toolcontract.ToolDefinition, toolInput json.RawMessage) bool {
 	return toolcontract.ToolDefinitionSideEffectClass(definition) == toolcontract.ToolSideEffectExternalSend &&
 		sendTargetsCurrentConversation(toolInput)
-}
-
-func isApprovedHeldCallVerbatimMatch(approvedHeldCallKey string, actionDocument turnActionDocument) bool {
-	trimmedApprovedHeldCallKey := strings.TrimSpace(approvedHeldCallKey)
-	if trimmedApprovedHeldCallKey == "" {
-		return false
-	}
-	return trimmedApprovedHeldCallKey == canonicalToolCallKey(actionDocument.ToolName, actionDocument.ToolInput)
-}
-
-// Task-intake-level continuations (no bound held call) keep the turn-wide exemption; runtime held-call continuations are exempt only for that exact verbatim call.
-func isExemptFromApprovalHold(request AgentTurnRequest, actionDocument turnActionDocument) bool {
-	if !request.IsApprovalContinuation {
-		return false
-	}
-	if !request.HadApprovedHeldCall {
-		return true
-	}
-	return isApprovedHeldCallVerbatimMatch(request.ApprovedHeldCallKey, actionDocument)
 }
 
 type approvalQuestionContextDocument struct {
