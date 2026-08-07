@@ -2210,3 +2210,23 @@ func TestARequiredFileResultIsNotRequiredWhenNothingCanDeliverIt(t *testing.T) {
 		t.Fatal("a required file on a task that holds only a terminal is a demand no turn can meet, and the run spends every remaining turn on it")
 	}
 }
+
+func TestAFileTaskIsSatisfiedByTheFileItActuallyWrote(t *testing.T) {
+	observations := []turnObservation{{
+		ObservationID: "obs-001",
+		Tool:          toolcontract.FileWriteToolName,
+		Effects:       []toolcontract.ResourceEffect{{ObjectType: "file", Effect: "changed", Path: "out.txt"}},
+	}}
+
+	if !hasRecordedFileEffect(observations) {
+		t.Fatal("a task that wrote the file it was asked for has met the requirement, whether or not anything was attached to a reply")
+	}
+}
+
+func TestReadingAFileIsNotWritingOne(t *testing.T) {
+	observations := []turnObservation{{ObservationID: "obs-001", Tool: toolcontract.FileReadToolName}}
+
+	if hasRecordedFileEffect(observations) {
+		t.Fatal("reading is not a change, and counting it as one lets a task finish having produced nothing")
+	}
+}
