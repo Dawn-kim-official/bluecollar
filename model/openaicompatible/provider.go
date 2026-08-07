@@ -57,6 +57,10 @@ func (provider *Provider) GenerateChatCompletion(ctx context.Context, request mo
 	return decodeChatCompletion(responseBody, provider.modelName)
 }
 
+func (provider *Provider) GenerateRecoveryChatCompletion(ctx context.Context, request model.ChatCompletionRequest) (model.ChatCompletionResponse, error) {
+	return provider.GenerateChatCompletion(ctx, request)
+}
+
 func chatCompletionRequest(modelName string, request model.ChatCompletionRequest) map[string]any {
 	chatRequest := map[string]any{
 		"model":    modelName,
