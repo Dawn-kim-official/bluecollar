@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Print one comparison row per harness from the runs both just wrote.
 
-Terminal-Bench records the verdict for every harness on the row. Only a
-harness that measures itself can fill the columns that separate two harnesses
-on one model, so those are read from the metrics file when it is there and
-left blank when it is not, rather than being guessed from the outside.
+Terminal-Bench records the verdict for every harness on the row. Each harness
+writes what it alone can see into its own metrics file, and a column stays
+blank rather than being guessed from the outside. pi's wall clock covers only
+its agent commands: it installs itself into the task container, and charging
+that installation to the harness would compare a setup step against a run.
 """
 
 import glob
@@ -28,7 +29,7 @@ def task_verdicts(run_directory):
 
 def measured_runs(run_directory):
     metrics = []
-    for path in glob.glob(os.path.join(run_directory, "**/bluecollar-metrics.json"), recursive=True):
+    for path in glob.glob(os.path.join(run_directory, "**/*-metrics.json"), recursive=True):
         metrics.append(json.load(open(path)))
     return metrics
 

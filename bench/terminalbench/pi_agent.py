@@ -6,13 +6,18 @@ exists so the comparison holds the benchmark, the model and the task fixed and
 changes only the harness.
 """
 
+import json
 import os
 import shlex
+import time
+from pathlib import Path
 
+from terminal_bench.agents.base_agent import AgentResult
 from terminal_bench.agents.installed_agents.abstract_installed_agent import (
     AbstractInstalledAgent,
 )
 from terminal_bench.terminal.models import TerminalCommand
+from terminal_bench.terminal.tmux_session import TmuxSession
 
 PASSED_THROUGH_KEYS = ("PI_BASE_URL", "PI_MODEL_ID", "PI_API_KEY")
 
@@ -35,7 +40,28 @@ class PiAgent(AbstractInstalledAgent):
     def _install_agent_script_path(self) -> os.PathLike:
         return self._get_templated_script_path("pi-setup.sh.j2")
 
+    def perform_task(
+        self,
+        instruction: str,
+        session: TmuxSession,
+        logging_dir: Path | None = None,
+    ) -> AgentResult:
+        self._agent_started_at = None
+        result = super().perform_task(instruction, session, logging_dir)
+        self._write_metrics(logging_dir)
+        return result
+
+    def _write_metrics(self, logging_dir: Path | None) -> None:
+        if logging_dir is None or self._agent_started_at is None:
+            return
+        logging_dir.mkdir(parents=True, exist_ok=True)
+        elapsed_millisecond = round((time.monotonic() - self._agent_started_at) * 1000)
+        (logging_dir / "pi-metrics.json").write_text(
+            json.dumps({"wallClockMs": elapsed_millisecond, "excludesInstallation": True}, indent=2)
+        )
+
     def _run_agent_commands(self, instruction: str) -> list[TerminalCommand]:
+        self._agent_started_at = time.monotonic()
         return [
             TerminalCommand(
                 command=(
