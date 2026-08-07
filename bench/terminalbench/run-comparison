@@ -52,7 +52,16 @@ refuseUnknownModel() {
   exit 2
 }
 
+removeAbandonedTaskContainers() {
+  local abandoned
+  abandoned="$(docker ps -a --format '{{.Names}}' | grep -E -- '-[0-9]+-of-[0-9]+-[0-9]{4}-[0-9]{2}-[0-9]{2}__' || true)"
+  if [ -z "$abandoned" ]; then return 0; fi
+  echo "removing $(printf '%s\n' "$abandoned" | wc -l | tr -d ' ') task containers a previous run left behind" >&2
+  printf '%s\n' "$abandoned" | xargs docker rm -f > /dev/null
+}
+
 refuseUnknownModel
+removeAbandonedTaskContainers
 
 go build -o /tmp/bluecollar ./cmd/bluecollar
 

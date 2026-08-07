@@ -82,6 +82,29 @@ the file instead of copying it and changing one line. pi solved four
 outright. On finding the bug bluecollar was 6/6 against pi's 4/6; on minimal
 diff discipline it was 0/6.
 
+## Reading a run back
+
+```bash
+bench/terminalbench/explain-run /tmp/bench-quixbugs5            # every task
+bench/terminalbench/explain-run /tmp/bench-quixbugs5 bitcount   # one of them
+```
+
+For each task it says whether it was solved, how many of the benchmark's own
+assertions passed and which ones did not, how many turns it took, which tools
+it reached for, why it stopped, what the runtime refused it, and where the
+full ledger sits. A pass rate cannot tell you that nine of ten assertions
+passed and the tenth was about diff size; this can, and that is usually the
+whole finding.
+
+pi's rows read "no ledger — this harness does not record what it did", which
+is the asymmetry, stated rather than hidden.
+
+Two audiences need the same facts. The operator gets them here. The agent
+holds its own observations while a turn runs, but nothing yet lets it read
+its ledger back across a run — its refusals, its gate decisions, the shape of
+its own thrash. That is the open half of this, and it is the half that would
+let the agent diagnose itself instead of waiting for someone to read the file.
+
 ## What the measurement has found
 
 Each of these was found by running a row, and each is invisible to a pass
