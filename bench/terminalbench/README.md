@@ -82,6 +82,41 @@ the file instead of copying it and changing one line. pi solved four
 outright. On finding the bug bluecollar was 6/6 against pi's 4/6; on minimal
 diff discipline it was 0/6.
 
+## The benchmark that measured the harness
+
+The three rows above mostly measure the model. The same harness scored 2/8 on
+terminal-bench with gemini-3.1-flash-lite and 3/8 with gpt-5.6-luna, and on
+that stronger model it drew level with pi in a single run:
+
+| benchmark | model | tasks | bluecollar | pi |
+|---|---|---|---|---|
+| terminal-bench-core | gpt-5.6-luna | 8 | 3 | 3 |
+
+Level on verdicts, not on anything else: the median bluecollar run took 355
+seconds and 44 turns against pi's 19 seconds, and only three of eight runs
+reached a proper end.
+
+AppWorld is the one that measured the harness rather than the model. It gives
+the agent a supervisor's phone, contacts, venmo and file system apps and asks
+for something like "message the family members who have no venmo account" —
+long, stateful, across apps, verified against the apps' own databases. On the
+first task bluecollar spent zero turns and called no tool, replying "tell me
+the names or phone numbers of your parents and siblings". pi looked them up.
+
+Same model, opposite behaviour: the intake planner listed the contacts as
+missing information, which pauses a task before the loop runs, and the agent
+never got to the instruction telling it to try before claiming it lacks data.
+Fixing the planner's definition of missing took that task from zero turns to
+sixteen. No coding benchmark surfaced this in a day of running; AppWorld did
+in twenty minutes.
+
+```bash
+BENCH_DATASET=appworld-dev bench/terminalbench/run-comparison 0d8a4ee_1
+```
+
+AppWorld's own verification returned 500 on some tasks for both harnesses, so
+treat unscored rows there as infrastructure, not results.
+
 ## Reading a run back
 
 ```bash
