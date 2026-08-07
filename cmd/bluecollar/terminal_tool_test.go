@@ -170,3 +170,17 @@ func TestAClassifierThatAlreadyWantsToStartIsLeftAlone(t *testing.T) {
 		t.Fatal("expected a usable decision to pass through untouched")
 	}
 }
+
+func TestAToolNameSentAsAShellCommandComesBackAsAFailureRatherThanASuccess(t *testing.T) {
+	result := invokeTerminalRun(t, t.TempDir(), `{"command":"get_weather"}`)
+
+	if !result.Failed() {
+		t.Fatal("a command the shell cannot find is not work done, and reading it as success burns the iteration budget on nothing")
+	}
+	if result.FailureCode() != toolcontract.FailureCodes.ToolNameInShell.String() {
+		t.Fatalf("expected the failure to name what went wrong, got %q", result.FailureCode())
+	}
+	if !strings.Contains(result.UserSafeFailureSummary(), "get_weather") {
+		t.Fatalf("expected the agent to be told which word was not a command, got %q", result.UserSafeFailureSummary())
+	}
+}

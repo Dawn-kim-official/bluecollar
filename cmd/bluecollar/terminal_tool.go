@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	defaultCommandTimeout = 2 * time.Minute
-	maximumCapturedOutput = 32 * 1024
+	commandNotFoundExitCode = 127
+	defaultCommandTimeout   = 2 * time.Minute
+	maximumCapturedOutput   = 32 * 1024
 )
 
 type terminalRunInput struct {
@@ -111,7 +112,17 @@ func runShellCommand(ctx context.Context, runningShell shell, input terminalRunI
 		return toolcontract.ToolFailureResult(toolcontract.FailureDependencyUnavailable, toolcontract.FailureCodes.Unavailable, "terminal_run",
 			"the command was still running after "+commandTimeout(input.TimeoutSecond).String()+" and was stopped")
 	}
-	return terminalRunResult(shellCommand.ProcessState.ExitCode(), capturedOutput.String(), runError)
+	exitCode := shellCommand.ProcessState.ExitCode()
+	if exitCode == commandNotFoundExitCode {
+		return toolcontract.ToolFailureResult(toolcontract.FailureNotFound, toolcontract.FailureCodes.ToolNameInShell, "terminal_run",
+			"the shell could not find "+firstWordOf(command)+"; this tool runs shell commands, so send something a shell can run")
+	}
+	return terminalRunResult(exitCode, capturedOutput.String(), runError)
+}
+
+func firstWordOf(command string) string {
+	firstWord, _, _ := strings.Cut(strings.TrimSpace(command), " ")
+	return firstWord
 }
 
 func terminalRunResult(exitCode int, output string, runError error) toolcontract.ToolResult {
