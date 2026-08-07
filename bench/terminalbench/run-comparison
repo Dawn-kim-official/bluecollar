@@ -17,6 +17,7 @@ dataset="${BENCH_DATASET:-terminal-bench-core==0.1.1}"
 model="${BENCH_MODEL:-openai/gpt-5.6-luna}"
 endpoint="${BENCH_ENDPOINT:-https://openrouter.ai/api/v1}"
 outputRoot="${BENCH_OUTPUT:-/tmp/bench-comparison}"
+concurrency="${BENCH_CONCURRENCY:-4}"
 taskArguments=()
 for taskID in "$@"; do taskArguments+=(--task-id "$taskID"); done
 
@@ -52,9 +53,12 @@ runHarness() {
       --dataset "$dataset" \
       --agent-import-path "$importPath" \
       --model "$model" \
+      --n-concurrent "$concurrency" \
       "${taskArguments[@]}" \
       --output-path "$outputRoot/$harnessName"
 }
 
 runHarness bluecollar bench.terminalbench.bluecollar_agent:BluecollarAgent
 runHarness pi bench.terminalbench.pi_agent:PiAgent
+
+python3 "$(dirname "$0")/summarize-comparison" "$outputRoot" "$dataset" "$model"
