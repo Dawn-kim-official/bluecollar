@@ -15,6 +15,11 @@ import statistics
 import sys
 
 
+def harness_names(output_root):
+    names = [os.path.basename(path.rstrip("/")) for path in glob.glob(os.path.join(output_root, "*/"))]
+    return sorted(names)
+
+
 def latest_run_directory(harness_root):
     directories = sorted(glob.glob(os.path.join(harness_root, "*/")), key=os.path.getmtime)
     return directories[-1] if directories else None
@@ -73,7 +78,7 @@ def harness_row(harness_name, harness_root):
 
 def main():
     output_root, dataset, model = sys.argv[1], sys.argv[2], sys.argv[3]
-    rows = [row for row in (harness_row(name, os.path.join(output_root, name)) for name in ("bluecollar", "pi")) if row]
+    rows = [row for row in (harness_row(name, os.path.join(output_root, name)) for name in harness_names(output_root)) if row]
     if not rows:
         print("no runs to summarise")
         return

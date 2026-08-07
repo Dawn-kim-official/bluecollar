@@ -18,6 +18,11 @@ import re
 import sys
 
 
+def harness_names(output_root):
+    names = [os.path.basename(path.rstrip("/")) for path in glob.glob(os.path.join(output_root, "*/"))]
+    return sorted(names)
+
+
 def latest_run_directory(harness_root):
     directories = sorted(glob.glob(os.path.join(harness_root, "*/")), key=os.path.getmtime)
     return directories[-1] if directories else None
@@ -107,7 +112,7 @@ def main():
         raise SystemExit(2)
     output_root = sys.argv[1]
     task_filter = sys.argv[2] if len(sys.argv) > 2 else ""
-    for harness_name in ("bluecollar", "pi"):
+    for harness_name in harness_names(output_root):
         run_directory = latest_run_directory(os.path.join(output_root, harness_name))
         if run_directory is None:
             continue
