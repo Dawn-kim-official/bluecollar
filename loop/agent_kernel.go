@@ -2,7 +2,6 @@ package loop
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 	"strings"
@@ -242,7 +241,6 @@ func (agentKernel *AgentKernel) RunAgentRequest(responseContext context.Context,
 		request, intakeDecision = applyPriorTaskOutcomeRecovery(request, intakeDecision)
 		intakeDecision.InitialToolNames = registeredToolNamesOnly(turnToolSet, intakeDecision.InitialToolNames)
 		intakeRequest.ActiveGoal = request.ActiveGoal
-		intakeDecision = agentKernel.restoreEscalatedTaskLevelForContinuation(intakeRequest, intakeDecision)
 	}
 	lifecycleMode := taskLifecycleModeForRequest(turnDecision, request)
 	if lifecycleMode == taskLifecycleSemanticRevision {
@@ -403,7 +401,6 @@ func (agentKernel *AgentKernel) RunAgentRequest(responseContext context.Context,
 		agentKernel.languageModel,
 		turnOptions,
 	)
-	agentTurnRunner.UseTaskLevelLanguageModelResolver(agentKernel.taskLanguageModelForLevel)
 	result, errorValue := agentTurnRunner.RunTurn(taskBudget.callerContext(), turnRequest)
 	result.TurnRoute = turnDecision.Route
 	result.ToolNames = toolNamesForEvent(turnRequest.ToolSet)
@@ -919,19 +916,6 @@ func (agentKernel *AgentKernel) turnRouterLanguageModel() model.LanguageModelPro
 	return agentKernel.classificationLanguageModel()
 }
 
-func (agentKernel *AgentKernel) restoreEscalatedTaskLevelForContinuation(request AgentRequest, intakeDecision IntakeDecision) IntakeDecision {
-	taskRunID := strings.TrimSpace(request.ExistingTaskRunID)
-	if taskRunID == "" {
-		return intakeDecision
-	}
-	restoredTaskLevel := highestEscalatedTaskLevel(agentKernel.taskRunService.ListTaskEvent(taskRunID))
-	if restoredTaskLevel == "" {
-		return intakeDecision
-	}
-	intakeDecision.TaskLevel = LargerTaskLevel(intakeDecision.TaskLevel, restoredTaskLevel)
-	return intakeDecision
-}
-
 func restorePersistedToolSelection(request AgentRequest) AgentRequest {
 	request.PinnedToolNames = appendUniqueStrings(request.PinnedToolNames, request.ActiveGoal.SelectedToolNames...)
 	request.PinnedSkillNames = appendUniqueStrings(request.PinnedSkillNames, request.ActiveGoal.SelectedSkillNames...)
@@ -940,38 +924,6 @@ func restorePersistedToolSelection(request AgentRequest) AgentRequest {
 
 func requestHasSitePrototypeEvidence(request AgentRequest) bool {
 	return contractRequiresToolNamespace(request.ToolSet, request.ActiveGoal.OutcomeContract, "site")
-}
-
-type budgetEscalatedEventBody struct {
-	PreviousTaskLevel  TaskLevel `json:"previousTaskLevel,omitempty"`
-	NewTaskLevel       TaskLevel `json:"newTaskLevel"`
-	UsedIterationCount int       `json:"usedIterationCount,omitempty"`
-	UsedToolCallCount  int       `json:"usedToolCallCount,omitempty"`
-	QualifyingEventIDs []string  `json:"qualifyingEventIDs,omitempty"`
-}
-
-type modelEscalatedEventBody struct {
-	PreviousTaskLevel TaskLevel `json:"previousTaskLevel,omitempty"`
-	NewTaskLevel      TaskLevel `json:"newTaskLevel"`
-}
-
-func highestEscalatedTaskLevel(taskEvents []taskstate.TaskEvent) TaskLevel {
-	highestTaskLevel := TaskLevel("")
-	for _, taskEvent := range taskEvents {
-		if taskEvent.Name != "agent.budget_escalated" {
-			continue
-		}
-		var eventBody budgetEscalatedEventBody
-		if errorValue := json.Unmarshal([]byte(taskEvent.Body), &eventBody); errorValue != nil {
-			continue
-		}
-		normalizedTaskLevel := NormalizeTaskLevel(string(eventBody.NewTaskLevel))
-		if normalizedTaskLevel == "" {
-			continue
-		}
-		highestTaskLevel = LargerTaskLevel(highestTaskLevel, normalizedTaskLevel)
-	}
-	return highestTaskLevel
 }
 
 func routedTurnDecision(request AgentRequest) (TurnDecision, error) {

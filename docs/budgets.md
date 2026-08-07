@@ -165,11 +165,40 @@ Its value is elsewhere. It says what the work is worth, and an agent that
 takes longer than the person it is standing in for has stopped being useful
 however correct its answer is.
 
+## What happens when a budget runs out
+
+The loop asks the model whether the work is done. If it is, the task
+finishes. If it is not, the task stops and reports what it did.
+
+It used to grant itself more. Reaching a limit with two "durable progress
+events" recorded since the tier began escalated the tier, which bought a
+larger budget and a better model, up to twice per task. The counting was
+wrong in both directions all day: a successful `pwd` scored as progress,
+while in the reference harness nothing scored at all because the tool never
+reported the field the counter read, so a task that had built and tested
+successfully was refused in exactly the same way as one that had done
+nothing.
+
+The reason it kept being wrong is that it was the wrong kind of question.
+Whether actions are moving toward a goal is a judgement about meaning, and a
+file changing is not evidence that changing it helped. This repository draws
+that line itself: the model judges outcomes and direction, deterministic code
+supplies facts the model cannot know. A progress counter is code answering
+the model's question.
+
+No other harness does this. pi ends when the model stops calling tools and
+bounds itself by the context window; Claude Code runs until the model stops
+or someone interrupts. Neither tries to measure whether a run is going
+anywhere.
+
+So the loop no longer grants itself time. It finishes if it can, and
+otherwise says how far it got — which is what a person does, and leaves the
+decision to continue with whoever asked.
+
 ## What is still owed
 
-- The Jetson's throughput, measured rather than assumed.
-- Durations derived as work over throughput instead of fixed minutes, so a
-  slow model gets proportionally more time for the same work.
 - Cost. Every run before today reported `costUSD` zero because the reference
   provider never asked the endpoint to account for it. It asks now, and once
   enough runs carry real cost the same percentile method applies to money.
+- Whether "here is how far I got" should come with a way to say "carry on",
+  so the requester can grant what the loop no longer grants itself.

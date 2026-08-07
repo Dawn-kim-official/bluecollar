@@ -17,15 +17,14 @@ import (
 const maximumElapsedClosingDuration = time.Minute
 
 type AgentTurnRunner struct {
-	throughputObserver             *ThroughputObserver
-	taskRunService                 taskstate.TaskRunStore
-	taskStepService                taskstate.TaskStepStore
-	taskArtifactService            taskstate.TaskArtifactStore
-	languageModel                  model.LanguageModelProvider
-	languageModelTaskLevel         TaskLevel
-	recoveryLanguageModel          model.LanguageModelProvider
-	taskLevelLanguageModelResolver TaskLevelLanguageModelResolver
-	options                        TurnOptions
+	throughputObserver     *ThroughputObserver
+	taskRunService         taskstate.TaskRunStore
+	taskStepService        taskstate.TaskStepStore
+	taskArtifactService    taskstate.TaskArtifactStore
+	languageModel          model.LanguageModelProvider
+	languageModelTaskLevel TaskLevel
+	recoveryLanguageModel  model.LanguageModelProvider
+	options                TurnOptions
 }
 
 type TaskLevelLanguageModelResolver func(TaskLevel) model.LanguageModelProvider
@@ -182,10 +181,6 @@ func NewAgentTurnRunnerWithRecoveryModel(taskRunService taskstate.TaskRunStore, 
 		recoveryLanguageModel:  recoveryLanguageModel,
 		options:                normalizedOptions,
 	}
-}
-
-func (agentTurnRunner *AgentTurnRunner) UseTaskLevelLanguageModelResolver(resolver TaskLevelLanguageModelResolver) {
-	agentTurnRunner.taskLevelLanguageModelResolver = resolver
 }
 
 func (agentTurnRunner *AgentTurnRunner) llmCallObserverForTaskRun(taskRunID string) llmCallObserver {
@@ -1584,18 +1579,8 @@ func (agentTurnRunner *AgentTurnRunner) finalizeEscalateOrStopForLimit(ctx conte
 	}
 	observations = finalization.Observations
 	attachments = finalization.Attachments
-	qualifyingEvents := qualifyingDurableProgressEventsSinceTierStart(agentTurnRunner.taskRunService.ListTaskEvent(taskRunID), observations)
-	if agentTurnRunner.options.TaskLevel == TaskLevelMax {
-		agentTurnRunner.appendLimitCheckpoint(taskRunID, qualifyingEvents)
-		result, errorValue := agentTurnRunner.stopForLimit(ctx, taskRunID, request, reason, observations, attachments, executionState, usedIterationCount, usedToolCallCount)
-		return result, false, errorValue
-	}
-	if len(qualifyingEvents) < 2 || agentTurnRunner.budgetEscalationCount(taskRunID) >= maxBudgetEscalationCount {
-		result, errorValue := agentTurnRunner.stopForLimit(ctx, taskRunID, request, reason, observations, attachments, executionState, usedIterationCount, usedToolCallCount)
-		return result, false, errorValue
-	}
-	agentTurnRunner.escalateBudgetTier(taskRunID, qualifyingEvents, usedIterationCount, usedToolCallCount)
-	return AgentTurnResult{}, true, nil
+	result, errorValue := agentTurnRunner.stopForLimit(ctx, taskRunID, request, reason, observations, attachments, executionState, usedIterationCount, usedToolCallCount)
+	return result, false, errorValue
 }
 
 func elapsedCompletionRequirements(requirements []toolUseRequirement, observations []turnObservation, completionIntentToolName string, toolSet *toolcontract.ToolSet) []toolUseRequirement {
@@ -1644,66 +1629,6 @@ func completionPromptObservations(requirements []toolUseRequirement, observation
 		matchingObservations = append(matchingObservations, observation)
 	}
 	return matchingObservations
-}
-
-const maxBudgetEscalationCount = 2
-
-func (agentTurnRunner *AgentTurnRunner) budgetEscalationCount(taskRunID string) int {
-	count := 0
-	for _, taskEvent := range agentTurnRunner.taskRunService.ListTaskEvent(taskRunID) {
-		if taskEvent.Name == "agent.budget_escalated" {
-			count++
-		}
-	}
-	return count
-}
-
-func (agentTurnRunner *AgentTurnRunner) escalateBudgetTier(taskRunID string, qualifyingEvents []qualifyingProgressEvent, usedIterationCount int, usedToolCallCount int) {
-	previousTaskLevel := TaskLevelProfileForLevel(agentTurnRunner.options.TaskLevel).TaskLevel
-	newTaskLevel, canEscalate := nextTaskLevel(previousTaskLevel)
-	if !canEscalate {
-		return
-	}
-	taskLevelProfile := TaskLevelProfileForLevel(newTaskLevel)
-	agentTurnRunner.options.TaskLevel = taskLevelProfile.TaskLevel
-	agentTurnRunner.options.MaxIterationCount = taskLevelProfile.MaxIterationCount
-	agentTurnRunner.options.MaxToolCallCount = taskLevelProfile.MaxToolCallCount
-	agentTurnRunner.options.MaxElapsedSecond = int(taskLevelProfile.Duration.Seconds())
-	agentTurnRunner.appendEvent(taskRunID, "agent.budget_escalated", marshalEventBody(budgetEscalatedEventBody{
-		PreviousTaskLevel:  previousTaskLevel,
-		NewTaskLevel:       taskLevelProfile.TaskLevel,
-		UsedIterationCount: usedIterationCount,
-		UsedToolCallCount:  usedToolCallCount,
-		QualifyingEventIDs: qualifyingProgressEventIDs(qualifyingEvents),
-	}))
-	agentTurnRunner.escalateLanguageModel(taskRunID, previousTaskLevel, taskLevelProfile.TaskLevel)
-}
-
-func (agentTurnRunner *AgentTurnRunner) escalateLanguageModel(taskRunID string, previousTaskLevel TaskLevel, newTaskLevel TaskLevel) {
-	if agentTurnRunner.taskLevelLanguageModelResolver == nil {
-		return
-	}
-	if newTaskLevel == agentTurnRunner.languageModelTaskLevel {
-		return
-	}
-	escalatedLanguageModel := agentTurnRunner.taskLevelLanguageModelResolver(newTaskLevel)
-	if escalatedLanguageModel == nil {
-		return
-	}
-	agentTurnRunner.languageModel = observeLanguageModel(escalatedLanguageModel, agentTurnRunner.llmCallObserverForTaskRun(taskRunID))
-	agentTurnRunner.languageModelTaskLevel = newTaskLevel
-	agentTurnRunner.appendEvent(taskRunID, "agent.model_escalated", marshalEventBody(modelEscalatedEventBody{
-		PreviousTaskLevel: previousTaskLevel,
-		NewTaskLevel:      newTaskLevel,
-	}))
-}
-
-func (agentTurnRunner *AgentTurnRunner) appendLimitCheckpoint(taskRunID string, qualifyingEvents []qualifyingProgressEvent) {
-	agentTurnRunner.appendEvent(taskRunID, "agent.limit_checkpoint", marshalEventBody(map[string]any{
-		"qualifyingProgressEvents": qualifyingEvents,
-		"qualifyingEventIDs":       qualifyingProgressEventIDs(qualifyingEvents),
-		"note":                     "work was preserved and this task run can be continued",
-	}))
 }
 
 func (agentTurnRunner *AgentTurnRunner) currentEffortElapsed(turnStartedAt time.Time) bool {
