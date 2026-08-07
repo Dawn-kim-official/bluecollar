@@ -36,6 +36,23 @@ if [ -z "${OPENROUTER_API_KEY:-}" ]; then
   exit 2
 fi
 
+refuseUnknownModel() {
+  local responseFile status
+  responseFile="$(mktemp)"
+  trap 'rm -f "$responseFile"' RETURN
+  status="$(curl -s -o "$responseFile" -w '%{http_code}' --max-time 30 \
+    -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+    -H 'Content-Type: application/json' \
+    -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"ok\"}],\"max_tokens\":1}" \
+    "$endpoint/chat/completions")"
+  if [ "$status" = "200" ]; then return 0; fi
+  echo "the endpoint refused $model with HTTP $status before any task ran:" >&2
+  cat "$responseFile" >&2
+  exit 2
+}
+
+refuseUnknownModel
+
 go build -o /tmp/bluecollar ./cmd/bluecollar
 
 runHarness() {
