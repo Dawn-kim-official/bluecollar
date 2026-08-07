@@ -77,7 +77,6 @@ runHarness() {
   PI_BASE_URL="$endpoint" \
   PI_MODEL_ID="$model" \
   PI_API_KEY="$OPENROUTER_API_KEY" \
-  OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
     uvx --from terminal-bench --with 'litellm==1.77.0' tb run \
       --dataset "$dataset" \
       --agent-import-path "$importPath" \
@@ -89,6 +88,5 @@ runHarness() {
 
 runHarness bluecollar bench.terminalbench.bluecollar_agent:BluecollarAgent
 runHarness pi bench.terminalbench.pi_agent:PiAgent
-runHarness codex terminal_bench.agents.installed_agents.codex.codex_agent:CodexAgent
 
 python3 "$(dirname "$0")/summarize-comparison" "$outputRoot" "$dataset" "$model"

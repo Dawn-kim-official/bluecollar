@@ -215,6 +215,26 @@ csv-to-parquet got better rather than merely cheaper. It had been grinding to
 its ceiling and finishing with nothing; it now completes and passes half the
 benchmark's assertions.
 
+## Codex is not on the row
+
+Terminal-Bench ships a codex agent and the scripts here discover whatever
+harnesses a run produced, so adding it is a one-line change. Getting it to
+answer is not.
+
+codex speaks OpenAI's Responses API and no longer accepts
+`wire_api = "chat"`, so it cannot be pointed at the endpoint the other two
+share by configuration alone. Named as a provider with
+`wire_api = "responses"` it does run against OpenRouter — three tasks passed
+that way before the run was stopped — so that path works if an API key is
+what you want to spend.
+
+On a subscription there is no API key. codex login leaves its credential in
+`~/.codex/auth.json`, and copying that file into the task container was not
+enough: codex inside the container still reached for an API key and got an
+empty one. Whatever it wants beyond that file was not worth more guessing for
+one column, and a harness adapter that does not authenticate is worse than an
+absent one.
+
 ## Reading a run back
 
 ```bash
