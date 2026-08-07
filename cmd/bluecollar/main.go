@@ -81,14 +81,17 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 	turnContext, cancel := context.WithTimeout(context.Background(), options.timeout)
 	defer cancel()
 
+	workspacePath := turnShell(options).resolvedWorkingDirectoryPath(turnContext)
 	request := agentcontract.AgentTurnRequest{
-		RequesterPersonID: "person-local",
-		RequesterName:     currentUserName(),
-		ConversationID:    "conversation-local",
-		Prompt:            options.prompt,
-		AgentIdentity:     agentcontract.AgentIdentity{Name: options.agentName},
-		WorkspaceRootPath: turnShell(options).resolvedWorkingDirectoryPath(turnContext),
-		ToolSet:           turnToolSet(options),
+		RequesterPersonID:    "person-local",
+		RequesterName:        currentUserName(),
+		ConversationID:       "conversation-local",
+		Prompt:               options.prompt,
+		AgentIdentity:        agentcontract.AgentIdentity{Name: options.agentName},
+		WorkspaceRootPath:    workspacePath,
+		WorkspaceDefaultPath: workspacePath,
+		WorkspaceGuidance:    []string{"Your shell starts in " + workspacePath + " and stays there between commands. You do not need to discover where you are."},
+		ToolSet:              turnToolSet(options),
 	}
 
 	turnDecision := decideTurn(turnContext, languageModel, request, options)
