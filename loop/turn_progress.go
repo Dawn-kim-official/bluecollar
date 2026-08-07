@@ -7,7 +7,9 @@ import (
 )
 
 const progressMessageLimit = 6000
-const toolResultContextLimit = 12000
+const toolResultContextLimit = 120000
+
+const unredactedOutputLimit = 20000
 const maxProgressObservations = 12
 const maxInteractiveReferences = 20
 const maxSummaryTextLength = 500
@@ -225,7 +227,7 @@ func toolResultContextItems(observations []turnObservation) []ToolResultContextI
 			break
 		}
 		if len(summary) > remainingLength {
-			summary = summary[:remainingLength] + "\n[trimmed]"
+			summary = strings.ToValidUTF8(summary[:remainingLength], "") + "\n[trimmed]"
 		}
 		totalLength += len(summary)
 		status := "success"
@@ -312,7 +314,10 @@ func summarizeObservationContent(observation turnObservation) string {
 		if observation.Failed() {
 			return truncateText(compactWhitespace(redactUnsafeText(content)), 500)
 		}
-		return summarizeSafeJSONFields(content, []string{"ok", "status", "message", "error", "url", "title", "filename", "sizeBytes", "contentType"})
+		if fields := summarizeSafeJSONFields(content, []string{"ok", "status", "message", "error", "url", "title", "filename", "sizeBytes", "contentType"}); fields != "" {
+			return fields
+		}
+		return truncateText(redactUnsafeText(content), unredactedOutputLimit)
 	}
 }
 
