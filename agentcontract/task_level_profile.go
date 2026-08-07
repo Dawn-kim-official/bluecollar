@@ -14,21 +14,28 @@ type TaskLevelProfile struct {
 const (
 	measuredSuccessfulIterationPercentile95 = 20
 	measuredSuccessfulToolCallPercentile95  = 13
+	measuredSuccessfulDurationPercentile95  = 4 * time.Minute
+	firstTierDurationMargin                 = 2
 	answerWithoutToolsIterationCount        = 4
 	answerWithoutToolsToolCallCount         = 1
+	answerWithoutToolsDuration              = 3 * time.Minute
 )
 
 func escalatedFrom(firstTierBudget int, doublings int) int {
 	return firstTierBudget << doublings
 }
 
+func escalatedDuration(doublings int) time.Duration {
+	return measuredSuccessfulDurationPercentile95 * firstTierDurationMargin << doublings
+}
+
 var taskLevelProfiles = []TaskLevelProfile{
-	{TaskLevel: TaskLevelXLow, Duration: 3 * time.Minute, MaxIterationCount: answerWithoutToolsIterationCount, MaxToolCallCount: answerWithoutToolsToolCallCount},
-	{TaskLevel: TaskLevelLow, Duration: 10 * time.Minute, MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 0), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 0)},
-	{TaskLevel: TaskLevelMedium, Duration: 20 * time.Minute, MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 1), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 1)},
-	{TaskLevel: TaskLevelHigh, Duration: 40 * time.Minute, MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 2), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 2)},
-	{TaskLevel: TaskLevelXHigh, Duration: time.Hour, MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 3), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 3)},
-	{TaskLevel: TaskLevelMax, Duration: time.Hour, MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 4), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 4)},
+	{TaskLevel: TaskLevelXLow, Duration: answerWithoutToolsDuration, MaxIterationCount: answerWithoutToolsIterationCount, MaxToolCallCount: answerWithoutToolsToolCallCount},
+	{TaskLevel: TaskLevelLow, Duration: escalatedDuration(0), MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 0), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 0)},
+	{TaskLevel: TaskLevelMedium, Duration: escalatedDuration(1), MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 1), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 1)},
+	{TaskLevel: TaskLevelHigh, Duration: escalatedDuration(2), MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 2), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 2)},
+	{TaskLevel: TaskLevelXHigh, Duration: escalatedDuration(3), MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 3), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 3)},
+	{TaskLevel: TaskLevelMax, Duration: escalatedDuration(4), MaxIterationCount: escalatedFrom(measuredSuccessfulIterationPercentile95, 4), MaxToolCallCount: escalatedFrom(measuredSuccessfulToolCallPercentile95, 4)},
 }
 
 func TaskLevelProfileForLevel(taskLevel TaskLevel) TaskLevelProfile {
