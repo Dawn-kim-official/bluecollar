@@ -20,6 +20,10 @@ func supportedFloorThroughput() ModelThroughput {
 	return ModelThroughput{CostPerCall: localCostPerModelCall, OutputTokensPerSecond: supportedFloorOutputTokensPerSecond}
 }
 
+func (throughput ModelThroughput) MeetsSupportedFloor() bool {
+	return throughput.OutputTokensPerSecond <= 0 || throughput.OutputTokensPerSecond >= supportedFloorOutputTokensPerSecond
+}
+
 func DurationForIterationCount(iterationCount int, throughput ModelThroughput) time.Duration {
 	floor := time.Duration(iterationCount) * supportedFloorThroughput().costOfOneCall() * durationMargin
 	if throughput.OutputTokensPerSecond <= 0 {

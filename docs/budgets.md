@@ -66,11 +66,11 @@ priced at or below the median $0.22 per million tokens:
 | the 49 cost-effective models | 119 tok/s (p25 92, p75 175) |
 | all 101 | 106 tok/s |
 
-Running a model yourself is a different regime. The consensus among people who
-do it is that human reading speed is 5 to 10 tok/s, that below **20 tok/s** an
-assistant feels sluggish, and that **40 to 60 tok/s** is what consumer hardware
-should be aiming at. An 8B model at Q4 reaches 90–140 tok/s on an RTX 4090 and
-30–80 on an Apple M-series Max.
+Running a model yourself is a different regime. Human reading speed is
+5 to 10 tok/s, an assistant below about **20 tok/s** feels sluggish to the
+people who run them, and **40 to 60 tok/s** is what consumer hardware should
+be aiming at. An 8B model at Q4 reaches 90–140 tok/s on an RTX 4090 and 30–80
+on an Apple M-series Max.
 
 Those thresholds were set by people watching tokens arrive. An agent's output
 is not read that way — it is tool calls and reasoning, and the requester sees
@@ -78,7 +78,16 @@ only how long the whole thing took. A model at 20 tok/s is not "slow but
 readable" here; it is six times the wall clock of a 119 tok/s model for
 identical work, delivered as one wait rather than a slow stream.
 
-**Minimum supported: 20 tok/s. Recommended: 50 tok/s or better.**
+**20 tok/s is a requirement, not a floor we design around. Recommended: 50
+tok/s or better.**
+
+The difference matters. Below 20 the right answer is not a longer deadline, it
+is to stop running the model locally: a machine that generates more slowly
+than a person reads will not carry an agent that has to make eight calls
+before it says anything. A model measured below the floor is reported as
+below it and still gets the floor's deadline, because stretching the clock for
+hardware that cannot do the work only spends more of the requester's time
+arriving at the same place.
 
 The device's own rate is still unmeasured. It runs gemma-4-E2B on llama.cpp on
 an 8GB Jetson — E4B does not fit alongside firecracker — and the 72 tok/s the

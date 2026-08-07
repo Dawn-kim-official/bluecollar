@@ -69,3 +69,23 @@ func TestChangingTheModelChangesTheAnswer(t *testing.T) {
 		t.Fatal("the deadline follows the model actually answering, and after a switch that is the new one")
 	}
 }
+
+func TestAModelBelowTheFloorIsNamedRatherThanAccommodated(t *testing.T) {
+	observer := NewThroughputObserver()
+	recordCalls(observer, "too-slow/model", 20, 2*time.Second, 5, 200)
+
+	throughput := observer.Throughput("too-slow/model")
+
+	if throughput.MeetsSupportedFloor() {
+		t.Fatalf("five tokens a second is slower than a person reads, and a deployment there should be told to stop running the model locally rather than handed a longer clock: %+v", throughput)
+	}
+	if DurationForIterationCount(20, throughput) != DurationForIterationCount(20, ModelThroughput{}) {
+		t.Fatal("and it still does not get to move the deadline")
+	}
+}
+
+func TestAnUnmeasuredModelIsNotAccusedOfBeingSlow(t *testing.T) {
+	if !(ModelThroughput{}).MeetsSupportedFloor() {
+		t.Fatal("having no measurement is not the same as measuring badly")
+	}
+}
