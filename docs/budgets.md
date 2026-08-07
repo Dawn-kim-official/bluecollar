@@ -78,7 +78,7 @@ only how long the whole thing took. A model at 20 tok/s is not "slow but
 readable" here; it is six times the wall clock of a 119 tok/s model for
 identical work, delivered as one wait rather than a slow stream.
 
-**Minimum supported: 20 tok/s. Recommended: 40–50 tok/s.**
+**Minimum supported: 20 tok/s. Recommended: 50 tok/s or better.**
 
 The device's own rate is still unmeasured. It runs gemma-4-E2B on llama.cpp on
 an 8GB Jetson — E4B does not fit alongside firecracker — and the 72 tok/s the
