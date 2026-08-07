@@ -198,3 +198,57 @@ func TestTruncatedOutputStaysDecodableWhenTheCutLandsMidCharacter(t *testing.T) 
 		t.Fatal("a cut that splits a character hands the caller bytes it cannot decode, and the whole run's measurement is lost to it")
 	}
 }
+
+func TestEveryWorkspaceToolReachesTheModel(t *testing.T) {
+	toolSet := newWorkspaceToolSet(shell{workingDirectoryPath: t.TempDir()})
+
+	for _, toolName := range []string{
+		toolcontract.TerminalRunToolName,
+		toolcontract.FileReadToolName,
+		toolcontract.FileWriteToolName,
+		toolcontract.FileEditToolName,
+	} {
+		if !toolSet.CanExpose(toolName) {
+			t.Fatalf("%s registers without error and then never reaches the model, which reads as the model choosing not to use it", toolName)
+		}
+	}
+}
+
+func TestFileEditReplacesOnlyThePassageItWasGiven(t *testing.T) {
+	workspacePath := t.TempDir()
+	filePath := filepath.Join(workspacePath, "program.py")
+	if errorValue := os.WriteFile(filePath, []byte("def f(n):\n    return n + 1\n"), 0o644); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	runningShell := shell{workingDirectoryPath: workspacePath}
+
+	result := editFileThroughShell(context.Background(), runningShell, fileEditInput{
+		Path: "program.py", FindText: "return n + 1", ReplaceText: "return n - 1",
+	})
+
+	if result.Failure != nil {
+		t.Fatalf("expected the edit to apply, got %+v", result.Failure)
+	}
+	edited, _ := os.ReadFile(filePath)
+	if string(edited) != "def f(n):\n    return n - 1\n" {
+		t.Fatalf("expected only the named passage to change, got %q", string(edited))
+	}
+	if len(result.Effects) != 1 || result.Effects[0].Path != "program.py" {
+		t.Fatalf("an edit that records no effect leaves the completion gate guessing whether work happened, got %+v", result.Effects)
+	}
+}
+
+func TestFileEditRefusesAPassageItCannotPlace(t *testing.T) {
+	workspacePath := t.TempDir()
+	if errorValue := os.WriteFile(filepath.Join(workspacePath, "program.py"), []byte("a = 1\na = 1\n"), 0o644); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+
+	result := editFileThroughShell(context.Background(), shell{workingDirectoryPath: workspacePath}, fileEditInput{
+		Path: "program.py", FindText: "a = 1", ReplaceText: "a = 2",
+	})
+
+	if result.Failure == nil {
+		t.Fatal("editing one of two identical passages silently picks one, and the model never learns which")
+	}
+}

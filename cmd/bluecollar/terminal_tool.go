@@ -70,7 +70,12 @@ func (runningShell shell) command(ctx context.Context, command string) *exec.Cmd
 }
 
 func newWorkspaceToolSet(runningShell shell) *toolcontract.ToolSet {
-	toolSet := toolcontract.NewToolSet([]string{toolcontract.TerminalRunToolName})
+	toolSet := toolcontract.NewToolSet([]string{
+		toolcontract.TerminalRunToolName,
+		toolcontract.FileReadToolName,
+		toolcontract.FileWriteToolName,
+		toolcontract.FileEditToolName,
+	})
 	toolcontract.RegisterToolFunction(toolSet, toolcontract.ToolFunction[terminalRunInput, toolcontract.ToolResult]{
 		Definition: toolcontract.ToolDefinition{
 			ID:              "bluecollar/terminal_run",
@@ -87,6 +92,7 @@ func newWorkspaceToolSet(runningShell shell) *toolcontract.ToolSet {
 		},
 		Result: toolcontract.IdentityToolResult,
 	})
+	registerFileTools(toolSet, runningShell)
 	return toolSet
 }
 

@@ -110,7 +110,7 @@ func printLedger(taskRunService *taskstate.TaskRunService, taskRunID string) {
 }
 
 func truncated(text string) string {
-	const limit = 160
+	const limit = 400
 	collapsed := strings.Join(strings.Fields(text), " ")
 	if len(collapsed) <= limit {
 		return collapsed
