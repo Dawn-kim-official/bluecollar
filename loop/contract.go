@@ -272,6 +272,8 @@ type (
 
 var (
 	TaskLevelProfileForLevel          = agentcontract.TaskLevelProfileForLevel
+	NewThroughputObserver             = agentcontract.NewThroughputObserver
+	DurationForIterationCount         = agentcontract.DurationForIterationCount
 	nextTaskLevel                     = agentcontract.NextTaskLevel
 	taskLevelRequiresPlan             = agentcontract.TaskLevelRequiresPlan
 	taskLevelWantsSingleFinalReply    = agentcontract.TaskLevelWantsSingleFinalReply

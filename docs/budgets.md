@@ -107,14 +107,32 @@ nothing, and takes work that was going somewhere with it.
 | max | 112 min | 320 | 208 |
 
 At the hosted median of 119 tok/s the same work fits in a third of that — 0.5,
-2.6, 5.2, 10.3, 20.6, 41.2 minutes. Splitting the constant per deployment is
-what would let a hosted path be held to its own speed, and it waits on the
-device measurement, since one of the two numbers it needs does not exist yet.
+2.6, 5.2, 10.3, 20.6, 41.2 minutes. A deployment does not have to accept the
+floor's clock: the deadline is computed from the throughput of the model that
+is actually answering.
 
-Doubling is the point. The ladder it replaced went 40 minutes to 60 to 60, and
-220 tool calls to 260 — an escalation that buys eighteen percent more is a
-ceiling wearing a ladder's clothes. A tier a task escalates *into* has to be
-able to finish work the tier below it could not.
+## The deadline follows the model in use
+
+Every `llm.call` the ledger records also goes to a throughput observer, which
+fits the same two constants over that model's recent calls. When a task asks
+for its deadline, it gets one sized for the model answering it rather than for
+the slowest model the product supports.
+
+Three rules keep that from cutting anything short:
+
+- Under eight calls for a model, there is no fit and the floor stands. A
+  handful of calls is not a measurement, and guessing from it can only shorten
+  a deadline.
+- A fitted deadline is used only when it is shorter than the floor's. A model
+  measuring slower than the floor does not get to shorten anything; the floor
+  is what the product promised.
+- The fit is cached per model and redone only when that model's sample count
+  doubles. One more call is not a new setting. Switching models misses the
+  cache by itself, because the model name is the key.
+
+Nothing is queried to do this. The samples are the values already being
+written to the ledger, kept as they pass, and the fit is arithmetic over at
+most two hundred of them.
 
 ## Who decides what
 

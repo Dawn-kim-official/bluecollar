@@ -656,6 +656,7 @@ func (agentKernel *AgentKernel) taskRunForRequest(request AgentRequest) taskstat
 func (agentKernel *AgentKernel) appendTurnRouterCallRecords(taskRunID string, records []llmCallRecord) {
 	for _, record := range records {
 		agentKernel.taskRunService.AppendTaskEvent(taskRunID, "llm.call", marshalEventBody(record))
+		observeModelThroughput(record)
 	}
 }
 
@@ -835,8 +836,12 @@ func (agentKernel *AgentKernel) turnOptionsForIntakeDecision(intakeDecision Inta
 	baseOptions.TaskLevel = taskLevelProfile.TaskLevel
 	baseOptions.MaxIterationCount = taskLevelProfile.MaxIterationCount
 	baseOptions.MaxToolCallCount = taskLevelProfile.MaxToolCallCount
-	baseOptions.MaxElapsedSecond = int(taskLevelProfile.Duration.Seconds())
+	baseOptions.MaxElapsedSecond = int(elapsedBudgetForProfile(taskLevelProfile).Seconds())
 	return baseOptions
+}
+
+func elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile) time.Duration {
+	return DurationForIterationCount(taskLevelProfile.MaxIterationCount, sharedThroughputObserver.ThroughputOfModelInUse())
 }
 
 func artifactTaskLevelFloor(request AgentRequest, intakeDecision IntakeDecision) TaskLevel {

@@ -27,16 +27,11 @@ func escalatedFrom(firstTierBudget int, doublings int) int {
 	return firstTierBudget << doublings
 }
 
-func durationForIterationCount(iterationCount int) time.Duration {
-	generating := time.Duration(float64(measuredOutputTokensPerModelCall) / supportedFloorOutputTokensPerSecond * float64(time.Second))
-	return time.Duration(iterationCount) * (localCostPerModelCall + generating) * durationMargin
-}
-
 func profileForTier(taskLevel TaskLevel, doublings int) TaskLevelProfile {
 	iterationCount := escalatedFrom(measuredSuccessfulIterationPercentile95, doublings)
 	return TaskLevelProfile{
 		TaskLevel:         taskLevel,
-		Duration:          durationForIterationCount(iterationCount),
+		Duration:          DurationForIterationCount(iterationCount, ModelThroughput{}),
 		MaxIterationCount: iterationCount,
 		MaxToolCallCount:  escalatedFrom(measuredSuccessfulToolCallPercentile95, doublings),
 	}
@@ -45,7 +40,7 @@ func profileForTier(taskLevel TaskLevel, doublings int) TaskLevelProfile {
 var taskLevelProfiles = []TaskLevelProfile{
 	{
 		TaskLevel:         TaskLevelXLow,
-		Duration:          durationForIterationCount(answerWithoutToolsIterationCount),
+		Duration:          DurationForIterationCount(answerWithoutToolsIterationCount, ModelThroughput{}),
 		MaxIterationCount: answerWithoutToolsIterationCount,
 		MaxToolCallCount:  answerWithoutToolsToolCallCount,
 	},

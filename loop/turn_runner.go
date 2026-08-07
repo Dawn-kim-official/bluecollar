@@ -189,8 +189,15 @@ func (agentTurnRunner *AgentTurnRunner) UseTaskLevelLanguageModelResolver(resolv
 func (agentTurnRunner *AgentTurnRunner) llmCallObserverForTaskRun(taskRunID string) llmCallObserver {
 	return func(record llmCallRecord) {
 		agentTurnRunner.appendEvent(taskRunID, "llm.call", marshalEventBody(record))
+		observeModelThroughput(record)
 	}
 }
+
+func observeModelThroughput(record llmCallRecord) {
+	sharedThroughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
+}
+
+var sharedThroughputObserver = NewThroughputObserver()
 
 func normalizeTurnOptions(options TurnOptions) TurnOptions {
 	taskLevelProfile := TaskLevelProfileForLevel(options.TaskLevel)
