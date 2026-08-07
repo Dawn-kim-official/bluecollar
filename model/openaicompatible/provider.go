@@ -69,6 +69,7 @@ func chatCompletionRequest(modelName string, request model.ChatCompletionRequest
 		chatRequest["tool_choice"] = json.RawMessage(request.ToolChoice)
 	}
 	chatRequest["parallel_tool_calls"] = request.ParallelToolCalls
+	chatRequest["usage"] = map[string]any{"include": true}
 	if request.GenerationOptions.MaxTokens != nil {
 		chatRequest["max_tokens"] = *request.GenerationOptions.MaxTokens
 	}
@@ -101,9 +102,10 @@ func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatComp
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		Usage struct {
-			PromptTokens     int64 `json:"prompt_tokens"`
-			CompletionTokens int64 `json:"completion_tokens"`
-			TotalTokens      int64 `json:"total_tokens"`
+			PromptTokens     int64   `json:"prompt_tokens"`
+			CompletionTokens int64   `json:"completion_tokens"`
+			TotalTokens      int64   `json:"total_tokens"`
+			Cost             float64 `json:"cost"`
 		} `json:"usage"`
 	}
 	if errorValue := json.Unmarshal(responseBody, &decoded); errorValue != nil {
@@ -126,6 +128,7 @@ func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatComp
 			PromptTokens:     decoded.Usage.PromptTokens,
 			CompletionTokens: decoded.Usage.CompletionTokens,
 			TotalTokens:      decoded.Usage.TotalTokens,
+			CostUSD:          decoded.Usage.Cost,
 		},
 	}, nil
 }
@@ -191,6 +194,7 @@ func completionRequest(modelName string, messages []model.Message, schema *model
 		"type":     "function",
 		"function": map[string]any{"name": schema.Name},
 	}
+	request["usage"] = map[string]any{"include": true}
 	return request
 }
 
@@ -219,9 +223,10 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		Usage struct {
-			PromptTokens     int64 `json:"prompt_tokens"`
-			CompletionTokens int64 `json:"completion_tokens"`
-			TotalTokens      int64 `json:"total_tokens"`
+			PromptTokens     int64   `json:"prompt_tokens"`
+			CompletionTokens int64   `json:"completion_tokens"`
+			TotalTokens      int64   `json:"total_tokens"`
+			Cost             float64 `json:"cost"`
 		} `json:"usage"`
 	}
 	if errorValue := json.Unmarshal(responseBody, &decoded); errorValue != nil {
@@ -244,6 +249,7 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 			PromptTokens:     decoded.Usage.PromptTokens,
 			CompletionTokens: decoded.Usage.CompletionTokens,
 			TotalTokens:      decoded.Usage.TotalTokens,
+			CostUSD:          decoded.Usage.Cost,
 		},
 	}, nil
 }

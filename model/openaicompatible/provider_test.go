@@ -36,3 +36,16 @@ func TestMessagePartsReachTheEndpointAsContent(t *testing.T) {
 		t.Fatalf("a prompt whose text lives in parts would reach the model empty, got %q", chat[0]["content"])
 	}
 }
+
+func TestTheCostTheEndpointChargedIsRecorded(t *testing.T) {
+	responseBody := []byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"c1","type":"function","function":{"name":"terminal_run","arguments":"{}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"cost":0.0034}}`)
+
+	response, errorValue := decodeChatCompletion(responseBody, "any/model")
+
+	if errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if response.Usage.CostUSD != 0.0034 {
+		t.Fatalf("a ceiling meant to bound spend cannot be written in money while every run reports zero cost, got %v", response.Usage.CostUSD)
+	}
+}
