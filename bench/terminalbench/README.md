@@ -90,11 +90,31 @@ that stronger model it drew level with pi in a single run:
 
 | benchmark | model | tasks | bluecollar | pi |
 |---|---|---|---|---|
-| terminal-bench-core | gpt-5.6-luna | 8 | 3 | 3 |
+| terminal-bench-core | gpt-5.6-luna | 8 | 4 | 4 |
 
-Level on verdicts, not on anything else: the median bluecollar run took 355
-seconds and 44 turns against pi's 19 seconds, and only three of eight runs
-reached a proper end.
+Level on verdicts, and on one task — grid-pattern-transform — bluecollar
+solved what pi did not.
+
+The first time this row was level, it was level on verdicts alone: the median
+bluecollar run took 355 seconds and 44 turns against pi's 19 seconds, and
+three of eight runs reached a proper end. Four defects were behind that, all
+of them found by reading a ledger rather than by reasoning about the loop:
+
+- The finalizer was rejected eighteen times on one task over an observation ID
+  the runtime had written itself. It supplies the identifier now, after
+  letting the model try once.
+- The agent was told its workspace was the host directory the binary launched
+  from while its shell ran inside a container. fix-git spent all hundred of
+  its tool calls on sixty variations of pwd.
+- The workspace path reached the runtime and stopped there, because the
+  description carrying it was written to omit the concrete path.
+- Four copies of the outcome contract disagreed, and the gates read the one
+  that was rebuilt after the reduction ran.
+
+The median run is now 18 turns. Two tasks still spend their whole tool budget:
+fix-git and chess-best-move reach a hundred calls, and on fix-git a quarter of
+them are finally git commands rather than pwd, which is progress and not a
+fix.
 
 AppWorld is the one that measured the harness rather than the model. It gives
 the agent a supervisor's phone, contacts, venmo and file system apps and asks
