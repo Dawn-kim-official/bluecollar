@@ -18,6 +18,7 @@ model="${BENCH_MODEL:-openai/gpt-5.6-luna}"
 endpoint="${BENCH_ENDPOINT:-https://openrouter.ai/api/v1}"
 outputRoot="${BENCH_OUTPUT:-/tmp/bench-comparison}"
 concurrency="${BENCH_CONCURRENCY:-4}"
+harnessFilter="${BENCH_HARNESS:-}"
 taskArguments=()
 for taskID in "$@"; do taskArguments+=(--task-id "$taskID"); done
 
@@ -57,6 +58,7 @@ go build -o /tmp/bluecollar ./cmd/bluecollar
 
 runHarness() {
   local harnessName="$1" importPath="$2"
+  if [ -n "$harnessFilter" ] && [ "$harnessFilter" != "$harnessName" ]; then return 0; fi
   echo "== $harnessName on $dataset with $model =="
   PYTHONPATH="$PWD" \
   BLUECOLLAR_BINARY=/tmp/bluecollar \
