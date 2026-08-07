@@ -44,6 +44,13 @@ def formatted(value, digits=0):
     return f"{value:,.{digits}f}"
 
 
+def median_wall_clock_second(metrics):
+    milliseconds = median_of(metrics, "wallClockMs")
+    if milliseconds is None:
+        return "not reported"
+    return f"{milliseconds / 1000:,.1f}s"
+
+
 def harness_row(harness_name, harness_root):
     run_directory = latest_run_directory(harness_root)
     if run_directory is None:
@@ -59,7 +66,7 @@ def harness_row(harness_name, harness_root):
         "reachedEnd": f"{len(reached_end)}/{len(metrics)}" if metrics else "not reported",
         "turns": formatted(median_of(metrics, "turns")),
         "promptTokensPerTurn": formatted(median_of(metrics, "promptTokensPerTurn")),
-        "wallClockSecond": formatted((median_of(metrics, "wallClockMs") or 0) / 1000 or None, 1),
+        "wallClockSecond": median_wall_clock_second(metrics),
     }
 
 
@@ -74,7 +81,7 @@ def main():
     print("|---|---|---|---|---|---|---|")
     for row in rows:
         print(f"| {row['harness']} | {row['tasks']} | {row['resolved']} | {row['reachedEnd']} | "
-              f"{row['turns']} | {row['promptTokensPerTurn']} | {row['wallClockSecond']}s |")
+              f"{row['turns']} | {row['promptTokensPerTurn']} | {row['wallClockSecond']} |")
 
 
 main()
