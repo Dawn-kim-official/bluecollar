@@ -78,23 +78,11 @@ only how long the whole thing took. A model at 20 tok/s is not "slow but
 readable" here; it is six times the wall clock of a 119 tok/s model for
 identical work, delivered as one wait rather than a slow stream.
 
-**20 tok/s is a requirement, not a floor we design around. Recommended: 50
-tok/s or better.**
-
-The difference matters. Below 20 the right answer is not a longer deadline, it
-is to stop running the model locally: a machine that generates more slowly
-than a person reads will not carry an agent that has to make eight calls
-before it says anything. A model measured below the floor is reported as
-below it and still gets the floor's deadline, because stretching the clock for
-hardware that cannot do the work only spends more of the requester's time
-arriving at the same place.
-
-The device's own rate is still unmeasured. It runs gemma-4-E2B on llama.cpp on
-an 8GB Jetson — E4B does not fit alongside firecracker — and the 72 tok/s the
-leaderboard reports for a hosted E4B says nothing about that hardware. Until it
-is measured, 20 tok/s is an assumption standing where a measurement belongs.
-Ask the guest's llama-server for `timings.predicted_per_second` and the guess
-becomes a number.
+Those numbers are advice about whether a local model is worth running at all,
+not parameters of the budget. Below roughly 20 tok/s an assistant generates
+more slowly than a person reads and will not carry an agent that makes eight
+calls before it says anything; 50 tok/s or better is what to aim for. The
+deadline does not consult them. It follows what the model actually does.
 
 ## The ladder
 
@@ -134,24 +122,30 @@ The estimate sharpens as evidence arrives, with no threshold to cross:
 | one | that call |
 | three | the median of three |
 | ten | the median of ten |
-| two hundred and more | the median of the last two hundred |
+| a hundred and more | the median of the last hundred |
 
-It is one rule — the median of what is on hand, up to two hundred — and the
+It is one rule — the median of what is on hand, up to a hundred — and the
 table is what that rule looks like as it fills. Nothing waits for a quorum,
 so the first task on a new model is already on that model's clock rather than
 a stranger's, and a single wild call cannot move a median once there are a few
-around it. The window stops at two hundred so a model that has been running
-for months still answers for how it behaves now.
+around it. The window stops at a hundred so a model that has been running for months
+still answers for how it behaves now.
 
 A median call is what the budget needs, so it is what is kept. Separating the
 fixed cost from the per-token rate says more about a model, and it is how the
 numbers above were understood, but a deadline is iterations times what an
 iteration costs, and that is measured directly.
 
-The estimate can only shorten a deadline. A model measuring slower than the
-floor is reported as below it — `MeetsSupportedFloor` — and still gets the
-floor's deadline, because the floor is what the product promised and hardware
-that cannot do the work does not become able to with a longer clock.
+The measurement sets the deadline outright, bounded at both ends. Below, by
+the fastest call worth believing — without it a near-zero measurement hands a
+task a near-zero clock and it is stopped before its second call. Above, by
+what the tier is willing to spend, which is what stops a model answering once
+an hour.
+
+An earlier version bounded it the other way, taking the shorter of the
+measurement and a fixed floor. That handed slow hardware a clock sized for
+faster hardware, which is not a standard but a guarantee that everything it is
+given fails. A model that needs longer gets longer, up to the tier's ceiling.
 
 Nothing is queried. The samples are the values already being written to the
 ledger, kept as they pass.
