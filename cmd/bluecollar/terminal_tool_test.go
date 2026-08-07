@@ -252,3 +252,20 @@ func TestFileEditRefusesAPassageItCannotPlace(t *testing.T) {
 		t.Fatal("editing one of two identical passages silently picks one, and the model never learns which")
 	}
 }
+
+func TestFileWriteResultSatisfiesItsOwnContract(t *testing.T) {
+	workspacePath := t.TempDir()
+	toolSet := newWorkspaceToolSet(shell{workingDirectoryPath: workspacePath})
+
+	result, errorValue := toolSet.Invoke(context.Background(), toolcontract.ToolInvocation{
+		ToolName: toolcontract.FileWriteToolName,
+		Input:    json.RawMessage(`{"path":"out.txt","content":"hello\n"}`),
+	})
+
+	if errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if result.Failure != nil {
+		t.Fatalf("a tool whose own result its contract rejects can never succeed, no matter how many times the model retries: %+v", result.Failure)
+	}
+}

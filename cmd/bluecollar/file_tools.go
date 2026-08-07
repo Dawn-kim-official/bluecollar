@@ -55,6 +55,13 @@ var fileEditInputSchema = json.RawMessage(`{
 	}
 }`)
 
+var changedFileEffectContract = []toolcontract.ResourceEffectContract{{
+	ObjectType:     "file",
+	Effect:         "changed",
+	ResultField:    "path",
+	EffectIdentity: "path",
+}}
+
 var fileToolOutputSchema = json.RawMessage(`{
 	"type": "object",
 	"additionalProperties": false,
@@ -94,7 +101,7 @@ func registerFileTools(toolSet *toolcontract.ToolSet, runningShell shell) {
 			Name:            toolcontract.FileWriteToolName,
 			SideEffectClass: toolcontract.ToolSideEffectStateChange,
 			OutputSchema:    fileToolOutputSchema,
-			ResultContract:  &toolcontract.ToolResultContract{Schema: fileToolOutputSchema},
+			ResultContract:  &toolcontract.ToolResultContract{Schema: fileToolOutputSchema, Effects: changedFileEffectContract},
 			Description:     "Write a file from scratch, replacing whatever was there. To produce a modified version of a file that already exists, copy it and edit the copy; retyping its contents from memory changes lines you did not mean to change.",
 			Visibility:      toolcontract.ToolVisibilityModel,
 			InputSchema:     fileWriteInputSchema,
@@ -115,7 +122,7 @@ func registerFileTools(toolSet *toolcontract.ToolSet, runningShell shell) {
 			Name:            toolcontract.FileEditToolName,
 			SideEffectClass: toolcontract.ToolSideEffectStateChange,
 			OutputSchema:    fileToolOutputSchema,
-			ResultContract:  &toolcontract.ToolResultContract{Schema: fileToolOutputSchema},
+			ResultContract:  &toolcontract.ToolResultContract{Schema: fileToolOutputSchema, Effects: changedFileEffectContract},
 			Description:     "Replace one exact passage of a file with another, leaving every other line byte for byte as it was. This is how an existing file should be changed.",
 			Visibility:      toolcontract.ToolVisibilityModel,
 			InputSchema:     fileEditInputSchema,
