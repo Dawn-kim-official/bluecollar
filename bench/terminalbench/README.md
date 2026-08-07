@@ -62,56 +62,81 @@ host and reaches only the container's shell, so it uses the endpoint directly.
 pi is installed inside the container, so it needs a base URL the container can
 resolve: `host.docker.internal`, not `127.0.0.1`.
 
-## What the row has said so far
+## What the rows have said so far
 
-Terminal-Bench `terminal-bench-core==0.1.1`, task `hello-world`, one attempt
-each, the same model on both sides.
+Three benchmarks, `google/gemini-3.1-flash-lite` on both harnesses, one
+attempt each, small task samples. Run-to-run variance on this model is one to
+two tasks out of eight, so nothing here separates the harnesses by less than
+that.
 
-The first row used a local `gemma-4-E4B-it UD-Q4_K_XL` served by llama.cpp with
-the MTP drafter. Neither harness solved it, and a pass rate alone would have
-called those two failures the same result: bluecollar worked until it hit its
-iteration ceiling, pi answered "I am a Large Language Model developed by Google
-DeepMind" and stopped.
+| benchmark | tasks | bluecollar | pi |
+|---|---|---|---|
+| terminal-bench-core | 8 | 2 | 5 |
+| quixbugs | 6 | 0 | 4 |
+| aider-polyglot | 6 | 1 | 3 |
 
-On `openai/gpt-5.6-luna` both harnesses solve it, and the interesting column is
-no longer the verdict.
-
-| harness | resolved | turns | tool calls | prompt tokens/turn | wall clock |
-|---|---|---|---|---|---|
-| bluecollar | yes | 40 | 12 | 8,643 | 234s |
-| pi | yes | not reported | not reported | not reported | 21s |
-
-bluecollar creates the file within the first few turns and then cannot stop.
-Every run so far has ended at `max_iterations` rather than at a finish, which
-is why `reachedEnd` is false on a task the benchmark scores as passed.
+pi is ahead. One row reads differently underneath: on quixbugs every
+functional test passed for all six of bluecollar's runs — it found and fixed
+each bug — and all six failed only `test_one_line_change`, because it rewrote
+the file instead of copying it and changing one line. pi solved four
+outright. On finding the bug bluecollar was 6/6 against pi's 4/6; on minimal
+diff discipline it was 0/6.
 
 ## What the measurement has found
 
-Each of these was found by running the row, not by reading code, and each is
-the kind of defect a pass rate hides completely.
+Each of these was found by running a row, and each is invisible to a pass
+rate.
 
-- The action schema is a root-level `oneOf`, which strict structured output
-  rejects, so every run 400'd before reaching a model. Fixed by asking for a
-  native tool call, the way the product path already does.
-- A model that answers with prose instead of the required call had its prose
-  handed to a JSON parser. Now the call is forced, and prose is a named
-  failure carrying the finish reason.
-- Truncation cut on byte offsets, so a cut inside a multi-byte character
-  produced undecodable output and lost a whole solved run's measurement.
-- The outcome contract required a delivered file attachment on a task holding
-  only a terminal, so the gate asked 15 times for the one action the task
-  could not take.
+- The action schema was a root-level `oneOf`, which gemini answers with `{}`
+  and no error. Every run died on an empty action. The native tool path, one
+  function per tool, has no root oneOf; the reference provider now takes it.
+- Tool calls were decoded into a type tagged `toolCalls` while endpoints send
+  `tool_calls`, so every call was dropped and the loop reported none.
+- Truncation cut on byte offsets, so a cut inside a character lost a whole
+  solved run's measurement.
+- The completion contract required a delivery tool the task did not hold, and
+  the gate asked fifteen times for the one action the task could not take.
+- `completionEvidenceIDs` was a free string, so the model cited observations
+  that did not exist, twenty-five turns running.
+- The harness had one tool. A model asked to fix a file finished with "the
+  fixed code has been saved" — a file it never wrote.
+- A tool descriptor without a result contract registers without error and
+  never reaches the model, which is indistinguishable from a model choosing
+  not to call it.
+- A result carrying effects its descriptor never declared is rejected, and
+  the rejection reached the model as an ordinary retryable failure: 106 turns
+  on a call that could not succeed.
+- `Retryable` carried the zero value on every tool failure, so the loop told
+  the model "do not retry" about failures worth retrying and enforced nothing
+  about the ones that were not.
+
+## What has not worked
+
+Two changes were made, measured, and judged by the measurement rather than by
+the reasoning behind them.
+
+Restoring the contract's file requirement wherever a write tool existed took
+the median run from 9 turns to 118 and from seven of eight runs finishing to
+one. It was reverted.
+
+Telling the agent to check its own work before finishing solved no additional
+task, though it did cut the median run from 32 turns to 5 and took clean
+finishes from four of six to five. What it did not do is make the agent
+verify anything: `terminal_run` was still called about once per task, the
+tests sitting in the container were never run, and the agent read files 210
+times across six tasks instead. Whatever makes an agent check its work, a
+sentence in the system instruction is not it.
 
 ## Open
 
-The run still ends at the iteration ceiling. The gate now refuses finish for a
-different reason: the model cites `completionEvidenceIDs` that do not match any
-successful observation, 25 times in the last run. The valid IDs are known to
-the runtime and finite at the moment the schema is built, so they belong in the
-schema as a closed enum rather than being re-asked from the model as free
-strings — which is the same rule the rest of this loop follows and the next
-thing to fix.
+The runs that fail now fail in two shapes, and both come from the same place:
+bluecollar has a `finish` action a model can take at any moment, and a gate
+that judges it. A weak model declares completion early — `fix-permissions`
+ended after two reads — and a strict gate deadlocks. pi has neither: its run
+ends when the model stops calling tools, so completion cannot be claimed, only
+reached. Changing that touches the completion gate, the evidence ledger and
+the reply path, which are the parts of this loop that are deliberately its
+own, so it wants a design decision rather than another patch.
 
-pi reports no per-run figures, so its columns are what Terminal-Bench observed
-from outside while bluecollar's come from its own ledger. That asymmetry is
-worth closing before reading much into the middle columns.
+pi still reports only its wall clock, so the middle columns of every row above
+are bluecollar's alone.
