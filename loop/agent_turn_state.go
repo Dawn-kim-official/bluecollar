@@ -808,6 +808,7 @@ func agentActionCompletionIsReady(state agentTaskState) bool {
 		return false
 	}
 	return validateOutcomeContractRequirements(
+		state.Request.ToolSet,
 		state.Request.OutcomeContract,
 		state.Observations,
 		gateResult.Attachments,

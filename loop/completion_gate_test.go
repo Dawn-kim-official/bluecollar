@@ -2173,3 +2173,29 @@ func TestFinishHiddenAfterAttachmentRejectionDespiteToolEvidence(t *testing.T) {
 		t.Fatalf("expected finish hidden after attachment rejection even with prior tool evidence")
 	}
 }
+
+func TestAContractCannotRequireAToolThePaletteCannotCall(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+	contract := OutcomeContract{
+		ArtifactRequirement:        ArtifactRequirementRequired,
+		RequiredAttachmentSuffixes: []string{".txt"},
+		RequiredEvidenceTools:      []string{toolcontract.FileDeliverToolName},
+	}
+
+	result := validateOutcomeContractRequirements(toolSet, contract, nil, nil)
+
+	if !result.IsSatisfied {
+		t.Fatalf("a task holding only a terminal can never deliver a file, so the gate would ask for it every turn until the run dies: %+v", result)
+	}
+}
+
+func TestAContractStillRequiresAToolThePaletteDoesCall(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName, toolcontract.FileDeliverToolName})
+	contract := OutcomeContract{RequiredEvidenceTools: []string{toolcontract.FileDeliverToolName}}
+
+	result := validateOutcomeContractRequirements(toolSet, contract, nil, nil)
+
+	if result.IsSatisfied {
+		t.Fatal("expected the gate to keep asking for evidence from a tool the task can actually call")
+	}
+}

@@ -2027,7 +2027,7 @@ func elapsedTurnCanComplete(request AgentTurnRequest, requirements []toolUseRequ
 	if _, hasFailureDebt := activeFailureDebt(observations); hasFailureDebt {
 		return false
 	}
-	if result := validateOutcomeContractRequirements(request.OutcomeContract, observations, attachments); !result.IsSatisfied {
+	if result := validateOutcomeContractRequirements(request.ToolSet, request.OutcomeContract, observations, attachments); !result.IsSatisfied {
 		return false
 	}
 	if !contractRequiresAttachment(request.OutcomeContract) {

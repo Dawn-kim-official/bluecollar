@@ -408,14 +408,48 @@ func validateCompletionGateForRequestWithExpectedResults(request AgentTurnReques
 	if !result.IsSatisfied {
 		return result
 	}
-	if contractResult := validateOutcomeContractRequirements(request.OutcomeContract, observations, result.Attachments); !contractResult.IsSatisfied {
+	if contractResult := validateOutcomeContractRequirements(request.ToolSet, request.OutcomeContract, observations, result.Attachments); !contractResult.IsSatisfied {
 		return contractResult
 	}
 	return validateExpectedResultDelivery(request, observations, result.Attachments, actionDocument)
 }
 
-func validateOutcomeContractRequirements(contract OutcomeContract, observations []turnObservation, attachments []toolcontract.FileAttachment) completionGateResult {
-	contract = normalizeOutcomeContract(contract)
+func contractReducedToCallableTools(toolSet *toolcontract.ToolSet, contract OutcomeContract) OutcomeContract {
+	contract.RequiredEvidenceTools = callableToolNames(toolSet, contract.RequiredEvidenceTools)
+	anyOfGroups := [][]string{}
+	for _, toolNames := range contract.RequiredEvidenceAnyOf {
+		if callable := callableToolNames(toolSet, toolNames); len(callable) > 0 {
+			anyOfGroups = append(anyOfGroups, callable)
+		}
+	}
+	contract.RequiredEvidenceAnyOf = anyOfGroups
+	if isToolCallable(toolSet, toolcontract.FileDeliverToolName) {
+		return contract
+	}
+	contract.ArtifactRequirement = ""
+	contract.RequiredAttachmentSuffixes = nil
+	return contract
+}
+
+func callableToolNames(toolSet *toolcontract.ToolSet, toolNames []string) []string {
+	callable := []string{}
+	for _, toolName := range toolNames {
+		if isToolCallable(toolSet, toolName) {
+			callable = append(callable, toolName)
+		}
+	}
+	return callable
+}
+
+func isToolCallable(toolSet *toolcontract.ToolSet, toolName string) bool {
+	if toolSet == nil {
+		return true
+	}
+	return toolSet.IsRegistered(strings.TrimSpace(toolName))
+}
+
+func validateOutcomeContractRequirements(toolSet *toolcontract.ToolSet, contract OutcomeContract, observations []turnObservation, attachments []toolcontract.FileAttachment) completionGateResult {
+	contract = contractReducedToCallableTools(toolSet, normalizeOutcomeContract(contract))
 	for _, toolName := range contract.RequiredEvidenceTools {
 		if !hasSuccessfulEvidenceToolObservation(observations, toolName) {
 			return missingContractToolResult([]string{toolName})
