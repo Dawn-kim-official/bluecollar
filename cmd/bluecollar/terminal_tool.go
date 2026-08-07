@@ -59,16 +59,34 @@ var terminalRunOutputSchema = json.RawMessage(`{
 type shell struct {
 	workingDirectoryPath string
 	commandPrefix        []string
+	interpreterName      string
 }
 
 func (runningShell shell) command(ctx context.Context, command string) *exec.Cmd {
+	interpreter := runningShell.interpreter()
 	if len(runningShell.commandPrefix) == 0 {
-		shellCommand := exec.CommandContext(ctx, "sh", "-c", command)
+		shellCommand := exec.CommandContext(ctx, interpreter, "-c", command)
 		shellCommand.Dir = runningShell.workingDirectoryPath
 		return shellCommand
 	}
-	arguments := append(append([]string{}, runningShell.commandPrefix[1:]...), "sh", "-c", command)
+	arguments := append(append([]string{}, runningShell.commandPrefix[1:]...), interpreter, "-c", command)
 	return exec.CommandContext(ctx, runningShell.commandPrefix[0], arguments...)
+}
+
+func (runningShell shell) interpreter() string {
+	if runningShell.interpreterName == "" {
+		return "sh"
+	}
+	return runningShell.interpreterName
+}
+
+func (runningShell shell) withInterpreterFound(ctx context.Context) shell {
+	probe := runningShell.command(ctx, "command -v bash")
+	if probe.Run() != nil {
+		return runningShell
+	}
+	runningShell.interpreterName = "bash"
+	return runningShell
 }
 
 func (runningShell shell) resolvedWorkingDirectoryPath(ctx context.Context) string {

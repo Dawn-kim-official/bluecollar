@@ -112,10 +112,10 @@ func TestALongOutputKeepsItsEndBecauseThatIsWhereTheErrorIs(t *testing.T) {
 }
 
 func TestARunnerToldToBringNoShellBringsNone(t *testing.T) {
-	if turnToolSet(runOptions{withoutTools: true}) != nil {
+	if turnToolSet(runOptions{withoutTools: true}, shell{}) != nil {
 		t.Fatal("expected no tool set when the runner is asked to answer from reasoning alone")
 	}
-	if turnToolSet(runOptions{workspacePath: t.TempDir()}) == nil {
+	if turnToolSet(runOptions{}, shell{workingDirectoryPath: t.TempDir()}) == nil {
 		t.Fatal("expected a shell by default, because a runner with no tools cannot be benchmarked")
 	}
 }
@@ -312,5 +312,21 @@ func TestAFailedCommandIsNotProgress(t *testing.T) {
 	}
 	if output.Completed {
 		t.Fatal("a command that failed moved nothing forward")
+	}
+}
+
+func TestTheShellPrefersBashWhereItExists(t *testing.T) {
+	found := shell{workingDirectoryPath: t.TempDir()}.withInterpreterFound(context.Background())
+
+	if found.interpreter() != "bash" {
+		t.Fatalf("a model writing set -o pipefail gets Illegal option from dash, and every bash-ism it writes fails for a reason that is ours: %q", found.interpreter())
+	}
+}
+
+func TestWithoutBashTheShellStillRuns(t *testing.T) {
+	plain := shell{workingDirectoryPath: t.TempDir()}
+
+	if plain.interpreter() != "sh" {
+		t.Fatalf("sh is what every container has, so it is what an unprobed shell uses: %q", plain.interpreter())
 	}
 }

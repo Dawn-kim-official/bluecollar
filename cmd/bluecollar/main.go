@@ -81,7 +81,8 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 	turnContext, cancel := context.WithTimeout(context.Background(), options.timeout)
 	defer cancel()
 
-	workspacePath := turnShell(options).resolvedWorkingDirectoryPath(turnContext)
+	runningShell := turnShellWithInterpreter(turnContext, options)
+	workspacePath := runningShell.resolvedWorkingDirectoryPath(turnContext)
 	request := agentcontract.AgentTurnRequest{
 		RequesterPersonID:    "person-local",
 		RequesterName:        currentUserName(),
@@ -90,7 +91,7 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 		AgentIdentity:        agentcontract.AgentIdentity{Name: options.agentName},
 		WorkspaceRootPath:    workspacePath,
 		WorkspaceDefaultPath: workspacePath,
-		ToolSet:              turnToolSet(options),
+		ToolSet:              turnToolSet(options, runningShell),
 	}
 
 	turnDecision := decideTurn(turnContext, languageModel, request, options)
@@ -170,11 +171,15 @@ func turnShell(options runOptions) shell {
 	}
 }
 
-func turnToolSet(options runOptions) *toolcontract.ToolSet {
+func turnShellWithInterpreter(ctx context.Context, options runOptions) shell {
+	return turnShell(options).withInterpreterFound(ctx)
+}
+
+func turnToolSet(options runOptions, runningShell shell) *toolcontract.ToolSet {
 	if options.withoutTools {
 		return nil
 	}
-	return newWorkspaceToolSet(turnShell(options))
+	return newWorkspaceToolSet(runningShell)
 }
 
 func writeMetrics(metricsPath string, taskRunService *taskstate.TaskRunService, taskRunID string) {
