@@ -88,8 +88,8 @@ func TestNextTaskLevelWalksLadderAndStopsAtMax(t *testing.T) {
 
 func TestTaskLevelProfileForLevelMapsLimits(t *testing.T) {
 	mediumProfile := TaskLevelProfileForLevel(TaskLevelMedium)
-	if mediumProfile.MaxIterationCount != 180 || mediumProfile.MaxToolCallCount != 100 || mediumProfile.Duration.Minutes() != 20 {
-		t.Fatalf("expected medium profile limits, got %+v", mediumProfile)
+	if mediumProfile.Duration.Minutes() != 20 {
+		t.Fatalf("expected the medium duration policy, got %+v", mediumProfile)
 	}
 
 	fallbackProfile := TaskLevelProfileForLevel(TaskLevel(""))

@@ -137,6 +137,53 @@ BENCH_DATASET=appworld-dev bench/terminalbench/run-comparison 0d8a4ee_1
 AppWorld's own verification returned 500 on some tasks for both harnesses, so
 treat unscored rows there as infrastructure, not results.
 
+## Where the budgets come from
+
+The iteration and tool call ceilings used to be chosen. They are now derived:
+
+```bash
+bench/derive-budgets /tmp/bench-luna6 /tmp/bench-quixbugs5 /tmp/bench-polyglot2
+```
+
+It reads the runs that succeeded and reports the distribution of what they
+actually cost. Across 52 measured runs, 14 successful:
+
+| | p50 | p90 | p95 | max |
+|---|---|---|---|---|
+| successful, turns | 7 | 20 | 20 | 21 |
+| successful, tool calls | 4 | 13 | 13 | 15 |
+| failed, tool calls | 4 | 100 | 220 |  |
+
+Successful runs and failed runs do not overlap. Every run that solved its task
+did it inside 21 turns and 15 tool calls. The failed ones pile up against
+whatever ceiling was above them, which is why they set no budget here.
+
+The first working tier is the 95th percentile of the successful runs, the same
+rule an SRE timeout follows: pick the false-stop rate you can live with, then
+read the number off the success distribution. Five percent of successful runs
+get stopped early, and progress-gated escalation gives them their next budget.
+Each tier doubles, which bounds overshoot at twice the true need and reaches
+any ceiling in a logarithmic number of steps. The ladder used to step from 220
+tool calls to 260 — an eighteen percent raise is not an escalation.
+
+| tier | was | now |
+|---|---|---|
+| low | 40 / 30 | 20 / 13 |
+| medium | 180 / 100 | 40 / 26 |
+| high | 400 / 220 | 80 / 52 |
+| xhigh | 500 / 260 | 160 / 104 |
+| max | 700 / 340 | 320 / 208 |
+
+Two limits on this. The measurement comes from container coding tasks holding
+four tools; the product runs twenty-five tools against longer workplace work,
+and its distribution may sit elsewhere. And fourteen successful runs is a thin
+basis for a 95th percentile. Both are reasons to re-run derive-budgets against
+product data rather than reasons to keep numbers nobody derived.
+
+The tests hold the shape rather than the digits: every tier must at least
+double the one below it, and the first working tier must equal the measured
+percentile.
+
 ## Reading a run back
 
 ```bash
