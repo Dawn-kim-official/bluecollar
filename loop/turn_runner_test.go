@@ -2655,3 +2655,43 @@ func TestNoObservationIsInventedWhenTheToolNeverSucceeded(t *testing.T) {
 		t.Fatal("supplying evidence for work that never succeeded would let the runtime sign off on a claim the ledger contradicts")
 	}
 }
+
+func TestWorkThatIsGettingSomewhereBuysMoreOfTheSameTier(t *testing.T) {
+	services := newTurnRunnerTestServices(nil, TurnOptions{MaxIterationCount: 20, MaxToolCallCount: 13, TaskLevel: TaskLevelLow})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "do it")
+	progress := []qualifyingProgressEvent{{ObservationID: "obs-001"}, {ObservationID: "obs-002"}}
+
+	extended := services.runner.extendWorkBudgetWhileTimeRemains(taskRun.TaskRunID, "max_tool_calls", progress, 20, 13)
+
+	if !extended {
+		t.Fatal("a task changing files on its way to the count limit is working, and stopping it there is the failure the whole budget exists to avoid")
+	}
+	if services.runner.options.MaxToolCallCount <= 13 {
+		t.Fatalf("expected the budget to grow past what was already spent, got %d", services.runner.options.MaxToolCallCount)
+	}
+}
+
+func TestWorkThatIsGettingNowhereBuysNothing(t *testing.T) {
+	services := newTurnRunnerTestServices(nil, TurnOptions{MaxIterationCount: 20, MaxToolCallCount: 13, TaskLevel: TaskLevelLow})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "do it")
+
+	if services.runner.extendWorkBudgetWhileTimeRemains(taskRun.TaskRunID, "max_tool_calls", nil, 20, 13) {
+		t.Fatal("a hundred commands that changed nothing is not work, and paying for more of it is what burned the budget before")
+	}
+}
+
+func TestTheSameTierIsNotExtendedForever(t *testing.T) {
+	services := newTurnRunnerTestServices(nil, TurnOptions{MaxIterationCount: 20, MaxToolCallCount: 13, TaskLevel: TaskLevelLow})
+	taskRun := services.taskRunService.CreateTaskRun("person-1", "conversation-1", "do it")
+	progress := []qualifyingProgressEvent{{ObservationID: "obs-001"}, {ObservationID: "obs-002"}}
+
+	for extension := 0; extension < maximumWorkBudgetExtensionsPerTier; extension++ {
+		if !services.runner.extendWorkBudgetWhileTimeRemains(taskRun.TaskRunID, "max_tool_calls", progress, 20, 13) {
+			t.Fatalf("expected extension %d to be granted", extension)
+		}
+	}
+
+	if services.runner.extendWorkBudgetWhileTimeRemains(taskRun.TaskRunID, "max_tool_calls", progress, 20, 13) {
+		t.Fatal("after enough of the same tier the answer is a better model, not more of the one that has not finished")
+	}
+}

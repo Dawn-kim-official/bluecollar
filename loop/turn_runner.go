@@ -1589,6 +1589,9 @@ func (agentTurnRunner *AgentTurnRunner) finalizeEscalateOrStopForLimit(ctx conte
 	observations = finalization.Observations
 	attachments = finalization.Attachments
 	qualifyingEvents := qualifyingDurableProgressEventsSinceTierStart(agentTurnRunner.taskRunService.ListTaskEvent(taskRunID), observations)
+	if agentTurnRunner.extendWorkBudgetWhileTimeRemains(taskRunID, reason, qualifyingEvents, usedIterationCount, usedToolCallCount) {
+		return AgentTurnResult{}, true, nil
+	}
 	if agentTurnRunner.options.TaskLevel == TaskLevelMax {
 		agentTurnRunner.appendLimitCheckpoint(taskRunID, qualifyingEvents)
 		result, errorValue := agentTurnRunner.stopForLimit(ctx, taskRunID, request, reason, observations, attachments, executionState, usedIterationCount, usedToolCallCount)
@@ -1660,6 +1663,46 @@ func (agentTurnRunner *AgentTurnRunner) budgetEscalationCount(taskRunID string) 
 		}
 	}
 	return count
+}
+
+const (
+	minimumProgressEventsToContinue    = 2
+	maximumWorkBudgetExtensionsPerTier = 2
+)
+
+func (agentTurnRunner *AgentTurnRunner) workBudgetExtensionCount(taskRunID string) int {
+	extensions := 0
+	for _, taskEvent := range agentTurnRunner.taskRunService.ListTaskEvent(taskRunID) {
+		switch taskEvent.Name {
+		case "agent.budget_escalated":
+			extensions = 0
+		case "agent.work_budget_extended":
+			extensions++
+		}
+	}
+	return extensions
+}
+
+func (agentTurnRunner *AgentTurnRunner) extendWorkBudgetWhileTimeRemains(taskRunID string, reason string, qualifyingEvents []qualifyingProgressEvent, usedIterationCount int, usedToolCallCount int) bool {
+	if len(qualifyingEvents) < minimumProgressEventsToContinue {
+		return false
+	}
+	if agentTurnRunner.workBudgetExtensionCount(taskRunID) >= maximumWorkBudgetExtensionsPerTier {
+		return false
+	}
+	taskLevelProfile := TaskLevelProfileForLevel(agentTurnRunner.options.TaskLevel)
+	agentTurnRunner.options.MaxIterationCount = usedIterationCount + taskLevelProfile.MaxIterationCount
+	agentTurnRunner.options.MaxToolCallCount = usedToolCallCount + taskLevelProfile.MaxToolCallCount
+	agentTurnRunner.appendEvent(taskRunID, "agent.work_budget_extended", marshalEventBody(map[string]any{
+		"reason":                reason,
+		"taskLevel":             agentTurnRunner.options.TaskLevel,
+		"usedIterationCount":    usedIterationCount,
+		"usedToolCallCount":     usedToolCallCount,
+		"newMaxIterationCount":  agentTurnRunner.options.MaxIterationCount,
+		"newMaxToolCallCount":   agentTurnRunner.options.MaxToolCallCount,
+		"qualifyingProgressIDs": qualifyingProgressEventIDs(qualifyingEvents),
+	}))
+	return true
 }
 
 func (agentTurnRunner *AgentTurnRunner) escalateBudgetTier(taskRunID string, qualifyingEvents []qualifyingProgressEvent, usedIterationCount int, usedToolCallCount int) {
