@@ -322,6 +322,7 @@ func (agentKernel *AgentKernel) RunAgentRequest(responseContext context.Context,
 	hasExecutionPlan := confirmationPlan.HasExecutionPlan
 	outcomeContract := outcomeContractForRequest(request, intakeDecision, instructionBundle, executionPlan, hasExecutionPlan, requiredAttachmentSuffixes)
 	outcomeContract = dischargeResolvedInputContract(request, turnDecision, outcomeContract)
+	outcomeContract = contractReducedToCallableTools(request.ToolSet, outcomeContract)
 	if result, didExpire := agentKernel.completeIntakeIfElapsed(taskBudget, intakeRequest, intakeDecision, turnDecision.Route, routerCallLedger.Records); didExpire {
 		return result, nil
 	}

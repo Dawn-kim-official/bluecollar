@@ -223,11 +223,18 @@ func normalizeTurnOptions(options TurnOptions) TurnOptions {
 	return options
 }
 
+func requestReducedToCallableTools(request AgentTurnRequest) AgentTurnRequest {
+	request.OutcomeContract = contractReducedToCallableTools(request.ToolSet, request.OutcomeContract)
+	request.ActiveGoal.OutcomeContract = contractReducedToCallableTools(request.ToolSet, request.ActiveGoal.OutcomeContract)
+	request.RequiredEvidenceTools = callableToolNames(request.ToolSet, request.RequiredEvidenceTools)
+	return request
+}
+
 func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request AgentTurnRequest) (AgentTurnResult, error) {
 	if agentTurnRunner.languageModel == nil {
 		return AgentTurnResult{}, errors.New("language model provider is not configured")
 	}
-	request.OutcomeContract = contractReducedToCallableTools(request.ToolSet, request.OutcomeContract)
+	request = requestReducedToCallableTools(request)
 
 	turnContext := ctx
 	turnContext = model.ContextWithRequestContext(turnContext, model.RequestContext{
