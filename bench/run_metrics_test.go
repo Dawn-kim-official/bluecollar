@@ -57,6 +57,20 @@ func TestPromptTokensPerTurnIsWhatSeparatesTwoHarnessesOnOneModel(t *testing.T) 
 	}
 }
 
+func TestPromptBytesPerTurnSurvivesAServerThatMisreportsItsUsage(t *testing.T) {
+	metrics := MeasureTaskRun("task-1", []taskstate.TaskEvent{
+		taskEventAt(0, "task.created", "do it"),
+		taskEventAt(1, "llm.call", `{"promptBytes":40000,"promptTokens":3}`),
+		taskEventAt(2, "agent.action", `{"action":"continue"}`),
+		taskEventAt(3, "llm.call", `{"promptBytes":60000,"promptTokens":3}`),
+		taskEventAt(4, "agent.action", `{"action":"finish"}`),
+	})
+
+	if metrics.PromptBytesPerTurn != 50000 {
+		t.Fatalf("a token count only the server can give is not a measurement, expected 50000 bytes per turn, got %v", metrics.PromptBytesPerTurn)
+	}
+}
+
 func TestATurnlessRunReportsNoPerTurnCostRatherThanDividingByZero(t *testing.T) {
 	metrics := MeasureTaskRun("task-1", []taskstate.TaskEvent{
 		taskEventAt(0, "task.created", "do nothing"),

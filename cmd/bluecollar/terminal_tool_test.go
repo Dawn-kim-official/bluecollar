@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
 
@@ -137,5 +138,35 @@ func TestAWrappedShellRunsTheCommandThroughTheSandboxItWasGiven(t *testing.T) {
 	}
 	if !strings.Contains(decodedOutput(t, result).Output, "yes") {
 		t.Fatalf("a prefix that is not actually in front of the command sends the agent to the wrong machine, got %+v", result)
+	}
+}
+
+func TestAClassifierCannotTalkTheRunnerOutOfTheTaskItWasGiven(t *testing.T) {
+	refused := agentcontract.TurnDecision{
+		Route:            agentcontract.TurnRouteGiveUp,
+		Classification:   agentcontract.IntakeClassificationUnsupported,
+		TaskShape:        agentcontract.TaskShapeImmediateReply,
+		InitialToolNames: []string{toolcontract.TerminalRunToolName},
+	}
+
+	started := startingTheTaskItWasGiven(refused)
+
+	if started.Route != agentcontract.TurnRouteStartTask || started.Classification != agentcontract.IntakeClassificationBoundedTask {
+		t.Fatalf("an argv is not an ambiguous message, expected the task to start, got %+v", started)
+	}
+	if len(started.InitialToolNames) != 1 {
+		t.Fatal("what the classifier worked out about the task is what gives the completion gate its teeth, and it must survive")
+	}
+}
+
+func TestAClassifierThatAlreadyWantsToStartIsLeftAlone(t *testing.T) {
+	planned := agentcontract.TurnDecision{
+		Route:          agentcontract.TurnRouteStartTask,
+		Classification: agentcontract.IntakeClassificationBoundedTask,
+		TaskShape:      agentcontract.TaskShapeResearchTask,
+	}
+
+	if startingTheTaskItWasGiven(planned).TaskShape != agentcontract.TaskShapeResearchTask {
+		t.Fatal("expected a usable decision to pass through untouched")
 	}
 }

@@ -31,12 +31,14 @@ type RunMetrics struct {
 	RecoveryAttempts   int `json:"recoveryAttempts"`
 	LanguageModelCalls int `json:"languageModelCalls"`
 
+	PromptBytes        int64 `json:"promptBytes"`
 	PromptTokens       int64 `json:"promptTokens"`
 	CompletionTokens   int64 `json:"completionTokens"`
 	CachedPromptTokens int64 `json:"cachedPromptTokens"`
 	ReasoningTokens    int64 `json:"reasoningTokens"`
 	TotalTokens        int64 `json:"totalTokens"`
 
+	PromptBytesPerTurn  float64 `json:"promptBytesPerTurn"`
 	PromptTokensPerTurn float64 `json:"promptTokensPerTurn"`
 	CostUSD             float64 `json:"costUSD"`
 	ModelLatencyMS      int64   `json:"modelLatencyMs"`
@@ -56,6 +58,7 @@ func MeasureTaskRun(taskRunID string, taskEvents []taskstate.TaskEvent) RunMetri
 		countTaskEvent(&metrics, taskEvent)
 	}
 	metrics.WallClockMS = elapsedMilliseconds(taskEvents)
+	metrics.PromptBytesPerTurn = perTurn(metrics.PromptBytes, metrics.Turns)
 	metrics.PromptTokensPerTurn = perTurn(metrics.PromptTokens, metrics.Turns)
 	return metrics
 }
@@ -88,6 +91,7 @@ func countLanguageModelCall(metrics *RunMetrics, body string) {
 		return
 	}
 	metrics.LanguageModelCalls++
+	metrics.PromptBytes += int64(record.PromptBytes)
 	metrics.PromptTokens += record.PromptTokens
 	metrics.CompletionTokens += record.CompletionTokens
 	metrics.CachedPromptTokens += record.CachedPromptTokens

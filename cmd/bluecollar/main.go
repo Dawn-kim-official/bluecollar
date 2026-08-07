@@ -28,6 +28,7 @@ func main() {
 	withoutTools := flag.Bool("without-tools", false, "answer from reasoning alone, giving the agent no shell")
 	execPrefix := flag.String("exec-prefix", "", "run every shell command through this wrapper, such as \"docker exec -i <container>\"")
 	metricsPath := flag.String("metrics", "", "write what this turn cost, as JSON, to this path")
+	withoutIntake := flag.Bool("without-intake", false, "skip the intake classifier, losing the outcome contract it builds")
 	flag.Parse()
 
 	prompt := strings.TrimSpace(strings.Join(flag.Args(), " "))
@@ -47,6 +48,7 @@ func main() {
 		withoutTools:  *withoutTools,
 		execPrefix:    *execPrefix,
 		metricsPath:   *metricsPath,
+		withoutIntake: *withoutIntake,
 	})
 	if errorValue != nil {
 		fmt.Fprintln(os.Stderr, "bluecollar:", errorValue)
@@ -66,6 +68,7 @@ type runOptions struct {
 	withoutTools  bool
 	execPrefix    string
 	metricsPath   string
+	withoutIntake bool
 }
 
 func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
@@ -88,11 +91,8 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 		ToolSet:           turnToolSet(options),
 	}
 
-	if turnDecision, routingError := routeTurn(turnContext, languageModel, request); routingError == nil {
-		request.PrecomputedTurnDecision = &turnDecision
-	} else {
-		fmt.Fprintln(os.Stderr, "bluecollar: routing the turn failed, running it unrouted:", routingError)
-	}
+	turnDecision := decideTurn(turnContext, languageModel, request, options)
+	request.PrecomputedTurnDecision = &turnDecision
 
 	result, errorValue := kernel.RunTurn(turnContext, request)
 	printLedger(taskRunService, result.TaskRun.TaskRunID)
@@ -183,5 +183,40 @@ func writeMetrics(metricsPath string, taskRunService *taskstate.TaskRunService, 
 	}
 	if writeError := os.WriteFile(metricsPath, document, 0o644); writeError != nil {
 		fmt.Fprintln(os.Stderr, "bluecollar: could not write the measurements:", writeError)
+	}
+}
+
+func decideTurn(ctx context.Context, languageModel *openaicompatible.Provider, request agentcontract.AgentTurnRequest, options runOptions) agentcontract.TurnDecision {
+	if options.withoutIntake {
+		return boundedTaskDecision()
+	}
+	turnDecision, routingError := routeTurn(ctx, languageModel, request)
+	if routingError != nil {
+		fmt.Fprintln(os.Stderr, "bluecollar: classifying the request failed, doing it anyway:", routingError)
+		return boundedTaskDecision()
+	}
+	return startingTheTaskItWasGiven(turnDecision)
+}
+
+func startingTheTaskItWasGiven(turnDecision agentcontract.TurnDecision) agentcontract.TurnDecision {
+	if turnDecision.Route == agentcontract.TurnRouteStartTask || turnDecision.Route == agentcontract.TurnRouteContinueTask {
+		return turnDecision
+	}
+	fmt.Fprintf(os.Stderr, "bluecollar: the classifier answered %q; the runner was given a task, so it starts one\n", turnDecision.Route)
+	turnDecision.Route = agentcontract.TurnRouteStartTask
+	turnDecision.Classification = agentcontract.IntakeClassificationBoundedTask
+	if turnDecision.TaskShape == agentcontract.TaskShapeImmediateReply || turnDecision.TaskShape == "" {
+		turnDecision.TaskShape = agentcontract.TaskShapeMaintenanceTask
+	}
+	return turnDecision
+}
+
+func boundedTaskDecision() agentcontract.TurnDecision {
+	return agentcontract.TurnDecision{
+		Route:          agentcontract.TurnRouteStartTask,
+		Classification: agentcontract.IntakeClassificationBoundedTask,
+		TaskShape:      agentcontract.TaskShapeMaintenanceTask,
+		TaskLevel:      agentcontract.TaskLevelLow,
+		Reason:         "the runner was given one thing to do",
 	}
 }
