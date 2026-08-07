@@ -561,6 +561,7 @@ func (agentKernel *AgentKernel) planConfirmationGate(responseContext context.Con
 	if errorValue != nil {
 		return confirmationGatePlan{DegradedError: errorValue}, nil
 	}
+	executionPlan.OriginalInstruction = strings.TrimSpace(request.Prompt)
 	decision := EvaluateConfirmationPolicy(executionPlan)
 	return confirmationGatePlan{ExecutionPlan: executionPlan, Decision: decision, HasExecutionPlan: true}, nil
 }
