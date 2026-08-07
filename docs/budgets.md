@@ -9,44 +9,58 @@ of the other is not a win.
 
 Across 147 measured runs the model's own latency was **85% to 97% of the
 task's wall clock**. Tool execution, the shell, the loop's own bookkeeping —
-all of it together is the remainder. A task's duration is very nearly the
-tokens it generated divided by how fast the model generates them.
+all of it together is the remainder. Whatever a task spends its time on, it
+spends it waiting for the model.
 
-That has a consequence worth stating plainly: a wall-clock ceiling written as
-a fixed number of minutes is really a token ceiling divided by an assumed
-throughput. Change the model and the same minutes buy a different amount of
-work.
+So a ceiling written as a fixed number of minutes is really a ceiling on how
+much model work the task may ask for, converted at some assumed rate. Change
+the model and the same minutes buy a different amount of work. The next two
+sections are about what that rate actually is, because it is not the one
+number it looks like.
 
-## Measured throughput
+## Measuring throughput is fitting two constants, not reading one number
 
-Output tokens per second, measured end to end from our own runs, so network
-and our own overhead are included and these sit below a vendor's figure:
+A model's speed is not a single rate. Every call pays a fixed cost — the
+connection, the queue, the wait for the first token — and then a per-token
+cost while it generates. Divide total tokens by total wait and the two blend
+into a figure that changes with how a task happens to be shaped.
 
-| model | measured | runs |
-|---|---|---|
-| google/gemini-3.1-flash-lite | 127 tok/s | 80 |
-| openai/gpt-5.6-luna | 65 tok/s | 67 |
+Fit them instead. Every run already records the three numbers needed:
 
-Published figures for the same class of model, measured at the provider:
+    model wait  ≈  a × model calls  +  b × output tokens
 
-| model | published |
-|---|---|
-| Gemini 3.5 Flash-Lite | 372 tok/s |
-| Gemini 3.1 Flash-Lite | 312 tok/s |
-| Gemini 3.6 Flash | 200 tok/s |
-| median, hosted reasoning models | 72–106 tok/s |
+`a` is what a round trip costs and `1/b` is the real generation rate. Fitted
+over runs measured here:
 
-The number that matters most is not in either table. The device runs
-gemma-4-E2B on llama.cpp on an 8GB Jetson, and a small quantised model on that
-hardware is an order of magnitude below any row above. **Its throughput has
-not been measured, and every duration here was set from hosted models.** Until
-it is measured, the local path is running on a budget derived from machines
-roughly ten times faster than it, which is the failure mode where a task is
-stopped for slowness that belongs to the hardware rather than to the work.
+| model | per call | generation | prefill |
+|---|---|---|---|
+| google/gemini-3.1-flash-lite | 899 ms | 339 tok/s | free, cached |
+| openai/gpt-5.6-luna | 3,383 ms | 596 tok/s | 6,426 tok/s |
 
-Recommended floor when a model's throughput is unknown: **20 tok/s**. It is
-low enough to cover a small local model and high enough that a ceiling built
-on it is still a ceiling.
+The fitted generation rate lands within ten percent of the figure the vendor
+publishes for the same model, which is the check that the fit means something.
+The blended rate does not: dividing tokens by wait gives 127 and 65 tok/s for
+these two, numbers that describe neither the model nor the task.
+
+## Which means the work unit for time is the call, not the token
+
+A successful run's median is 8 model calls at roughly 300 output tokens each.
+On gpt-5.6-luna that is 27 seconds of round trips against 4 seconds of
+generation: **87% of a task's time is the cost of asking, not the cost of
+answering.** One call is worth about two thousand output tokens.
+
+So an iteration or tool call budget is a good proxy for time, because calls
+and turns move together. A token budget is not — it prices the cheap half.
+
+For money the ordering reverses. Cost is prompt plus output tokens against the
+price sheet, and the number of calls does not appear, except that each one
+resends a prompt that keeps growing.
+
+The device is where these constants should differ most. There is no network to
+pay for, so the fixed cost should fall, while a small quantised model on an
+8GB Jetson generates far slower, so the per-token cost should rise. Whether it
+does is unmeasured. Fitting two constants is what makes both cases expressible
+at all; a single tokens-per-second figure can describe only one of them.
 
 ## The ladder
 
