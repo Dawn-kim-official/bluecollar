@@ -87,13 +87,16 @@ func completionRequest(modelName string, messages []model.Message, schema *model
 	if json.Unmarshal([]byte(schema.Document), &schemaDocument) != nil {
 		return request
 	}
-	request["response_format"] = map[string]any{
-		"type": "json_schema",
-		"json_schema": map[string]any{
-			"name":   schema.Name,
-			"schema": schemaDocument,
-			"strict": schema.IsStrictlyEnforced,
+	request["tools"] = []map[string]any{{
+		"type": "function",
+		"function": map[string]any{
+			"name":       schema.Name,
+			"parameters": schemaDocument,
 		},
+	}}
+	request["tool_choice"] = map[string]any{
+		"type":     "function",
+		"function": map[string]any{"name": schema.Name},
 	}
 	return request
 }
@@ -116,7 +119,8 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 	var decoded struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content   string     `json:"content"`
+				ToolCalls []toolCall `json:"tool_calls"`
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
@@ -132,11 +136,15 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 	if len(decoded.Choices) == 0 {
 		return model.StructuredResponse{}, errors.New("model endpoint returned no choices")
 	}
+	arguments, hasToolCall := firstToolCallArguments(decoded.Choices[0].Message.ToolCalls)
+	if !hasToolCall {
+		return model.StructuredResponse{}, errors.New("model answered " + decoded.Choices[0].FinishReason + " with prose instead of calling the schema it was given: " + truncated(decoded.Choices[0].Message.Content))
+	}
 	return model.StructuredResponse{
 		Transport:    "http",
 		ProviderName: "openai-compatible",
 		ModelName:    modelName,
-		Content:      decoded.Choices[0].Message.Content,
+		Content:      arguments,
 		FinishReason: decoded.Choices[0].FinishReason,
 		Usage: model.Usage{
 			PromptTokens:     decoded.Usage.PromptTokens,
@@ -146,10 +154,25 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 	}, nil
 }
 
+type toolCall struct {
+	Function struct {
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+func firstToolCallArguments(toolCalls []toolCall) (string, bool) {
+	for _, toolCall := range toolCalls {
+		if arguments := strings.TrimSpace(toolCall.Function.Arguments); arguments != "" {
+			return arguments, true
+		}
+	}
+	return "", false
+}
+
 func truncated(text string) string {
 	const limit = 300
 	if len(text) <= limit {
 		return text
 	}
-	return text[:limit] + "…"
+	return strings.ToValidUTF8(text[:limit], "") + "…"
 }

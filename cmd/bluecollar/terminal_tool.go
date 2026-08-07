@@ -141,7 +141,7 @@ func truncateOutput(output string) (string, bool) {
 	if len(output) <= maximumCapturedOutput {
 		return output, false
 	}
-	return output[len(output)-maximumCapturedOutput:], true
+	return strings.ToValidUTF8(output[len(output)-maximumCapturedOutput:], ""), true
 }
 
 func commandTimeout(timeoutSecond int) time.Duration {

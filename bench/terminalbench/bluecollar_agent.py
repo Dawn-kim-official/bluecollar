@@ -62,6 +62,7 @@ class BluecollarAgent(BaseAgent):
             ],
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=self._timeout_second + 60,
         )
         metrics = self._read_metrics(metrics_path)

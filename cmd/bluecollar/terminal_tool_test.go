@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/yeomyeonggeori/bluecollar/agentcontract"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
@@ -182,5 +183,18 @@ func TestAToolNameSentAsAShellCommandComesBackAsAFailureRatherThanASuccess(t *te
 	}
 	if !strings.Contains(result.UserSafeFailureSummary(), "get_weather") {
 		t.Fatalf("expected the agent to be told which word was not a command, got %q", result.UserSafeFailureSummary())
+	}
+}
+
+func TestTruncatedOutputStaysDecodableWhenTheCutLandsMidCharacter(t *testing.T) {
+	output := strings.Repeat("가", maximumCapturedOutput)
+
+	truncatedOutput, wasTruncated := truncateOutput(output)
+
+	if !wasTruncated {
+		t.Fatal("expected an output this long to be truncated")
+	}
+	if !utf8.ValidString(truncatedOutput) {
+		t.Fatal("a cut that splits a character hands the caller bytes it cannot decode, and the whole run's measurement is lost to it")
 	}
 }

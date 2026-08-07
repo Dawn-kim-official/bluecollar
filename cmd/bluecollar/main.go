@@ -115,7 +115,7 @@ func truncated(text string) string {
 	if len(collapsed) <= limit {
 		return collapsed
 	}
-	return collapsed[:limit] + "…"
+	return strings.ToValidUTF8(collapsed[:limit], "") + "…"
 }
 
 func routeTurn(ctx context.Context, languageModel *openaicompatible.Provider, request agentcontract.AgentTurnRequest) (agentcontract.TurnDecision, error) {
