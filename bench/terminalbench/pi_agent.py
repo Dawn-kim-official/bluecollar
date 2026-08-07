@@ -14,7 +14,7 @@ from terminal_bench.agents.installed_agents.abstract_installed_agent import (
 )
 from terminal_bench.terminal.models import TerminalCommand
 
-PASSED_THROUGH_KEYS = ("PI_BASE_URL", "PI_MODEL_ID")
+PASSED_THROUGH_KEYS = ("PI_BASE_URL", "PI_MODEL_ID", "PI_API_KEY")
 
 
 class PiAgent(AbstractInstalledAgent):
@@ -40,7 +40,8 @@ class PiAgent(AbstractInstalledAgent):
             TerminalCommand(
                 command=(
                     f"pi --provider local --model {shlex.quote(self._model_name)} "
-                    f"--api-key local -p {shlex.quote(instruction)}"
+                    f"--api-key {shlex.quote(os.environ.get('PI_API_KEY', 'local'))} "
+                    f"-p {shlex.quote(instruction)}"
                 ),
                 min_timeout_sec=0.0,
                 max_timeout_sec=float("inf"),

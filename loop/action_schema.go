@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
+	"sort"
 	"strings"
 )
 
@@ -71,10 +72,8 @@ func executionStateUpdateRefSchema() map[string]any {
 
 func finishActionSchema(hasFailureDebt bool) map[string]any {
 	failureResolutionValues := []string{"none", "recovered_with_success", "no_tool_fallback"}
-	requiredFields := []string{"action", "message", "goalStatus", "goalSatisfied", "hasRemainingWork", "completionEvidenceIDs", "qualityReview"}
 	if hasFailureDebt {
 		failureResolutionValues = []string{"recovered_with_success", "no_tool_fallback"}
-		requiredFields = append(requiredFields, "failureResolution")
 	}
 	return closedObjectSchema(map[string]any{
 		"action":                enumStringSchema("finish"),
@@ -89,7 +88,7 @@ func finishActionSchema(hasFailureDebt bool) map[string]any {
 		"qualityReview":         qualityReviewSchema(),
 		"remainingWork":         stringSchema(),
 		"executionStateUpdate":  executionStateSchema(),
-	}, requiredFields...)
+	})
 }
 
 func finishReplyPartArraySchema() map[string]any {
@@ -131,7 +130,7 @@ func setQualityCriteriaActionSchema() map[string]any {
 		"goalSatisfied":        booleanSchema(),
 		"remainingWork":        stringSchema(),
 		"executionStateUpdate": executionStateSchema(),
-	}, "action", "qualityCriteria", "executionStateUpdate")
+	})
 }
 
 func failActionSchema(hasFailureDebt bool) map[string]any {
@@ -143,13 +142,11 @@ func failActionSchema(hasFailureDebt bool) map[string]any {
 		"remainingWork":        stringSchema(),
 		"executionStateUpdate": executionStateSchema(),
 	}
-	requiredFields := []string{"action", "reason", "goalStatus", "goalSatisfied", "executionStateUpdate"}
 	if hasFailureDebt {
 		properties["failureResolution"] = enumValuesStringSchema([]string{"failure_report"})
 		properties["usedFailureFacts"] = failureReportFactsSchema()
-		requiredFields = append(requiredFields, "failureResolution", "usedFailureFacts")
 	}
-	return closedObjectSchema(properties, requiredFields...)
+	return closedObjectSchema(properties)
 }
 
 func continueActionSchema(toolDefinition toolcontract.ToolDefinition) (map[string]any, bool) {
@@ -168,7 +165,7 @@ func continueActionSchema(toolDefinition toolcontract.ToolDefinition) (map[strin
 		"hasRemainingWork":     booleanSchema(),
 		"remainingWork":        stringSchema(),
 		"executionStateUpdate": executionStateUpdateRefSchema(),
-	}, "action", "toolName", "toolInput", "goalSatisfied", "hasRemainingWork", "executionStateUpdate")
+	})
 	if description := strings.TrimSpace(toolDefinition.Description); description != "" {
 		schema["description"] = description
 	}
@@ -234,16 +231,28 @@ func booleanSchema() map[string]any {
 	return map[string]any{"type": "boolean"}
 }
 
-func closedObjectSchema(properties map[string]any, requiredFields ...string) map[string]any {
-	schema := map[string]any{
+func closedObjectSchema(properties map[string]any) map[string]any {
+	return map[string]any{
 		"type":                 "object",
 		"properties":           properties,
 		"additionalProperties": false,
+		"required":             sortedPropertyNames(properties),
 	}
-	if len(requiredFields) > 0 {
-		schema["required"] = requiredFields
-	}
+}
+
+func nullableObjectSchema(properties map[string]any) map[string]any {
+	schema := closedObjectSchema(properties)
+	schema["type"] = []string{"object", "null"}
 	return schema
+}
+
+func sortedPropertyNames(properties map[string]any) []string {
+	names := make([]string, 0, len(properties))
+	for name := range properties {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func completionEvidenceSchema() map[string]any {
@@ -285,7 +294,6 @@ func failureReportFactsSchema() map[string]any {
 // terminalActionUnifiedSchema is a flat closed object rather than a root-level oneOf of finish/fail branches; branch-specific requirements are enforced in Go instead of JSON schema required fields.
 func terminalActionUnifiedSchema(hasFailureDebt bool) map[string]any {
 	failureResolutionValues := []string{"none", failureResolutionRecoveredWithSuccess, failureResolutionNoToolFallback}
-	requiredFields := []string{"action", "message"}
 	properties := map[string]any{
 		"action":                enumValuesStringSchema([]string{"finish", "fail"}),
 		"message":               stringSchema(),
@@ -303,10 +311,9 @@ func terminalActionUnifiedSchema(hasFailureDebt bool) map[string]any {
 	if hasFailureDebt {
 		failureResolutionValues = []string{failureResolutionRecoveredWithSuccess, failureResolutionNoToolFallback, failureResolutionFailureReport}
 		properties["usedFailureFacts"] = failureReportFactsSchema()
-		requiredFields = append(requiredFields, "failureResolution")
 	}
 	properties["failureResolution"] = enumValuesStringSchema(failureResolutionValues)
-	return closedObjectSchema(properties, requiredFields...)
+	return closedObjectSchema(properties)
 }
 
 func finalizerActionSchema() string {
@@ -329,5 +336,5 @@ func recoveryDecisionSchema() string {
 	return mustMarshalStructuredSchema(closedObjectSchema(map[string]any{
 		"nextAction":      stringSchema(),
 		"userReplyIntent": stringSchema(),
-	}, "nextAction", "userReplyIntent"))
+	}))
 }

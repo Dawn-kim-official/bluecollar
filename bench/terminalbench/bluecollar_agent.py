@@ -26,6 +26,7 @@ class BluecollarAgent(BaseAgent):
             "BLUECOLLAR_MODEL_ENDPOINT", "http://127.0.0.1:11434/v1"
         )
         self._timeout_second = int(os.environ.get("BLUECOLLAR_TIMEOUT_SECOND", "900"))
+        self._api_key = os.environ.get("BLUECOLLAR_API_KEY", "")
 
     @staticmethod
     def name() -> str:
@@ -48,9 +49,11 @@ class BluecollarAgent(BaseAgent):
                 "--metrics",
                 str(metrics_path),
                 "--model",
-                self._model_name.split("/")[-1],
+                self._model_name,
                 "--endpoint",
                 self._endpoint,
+                "--api-key",
+                self._api_key,
                 "--exec-prefix",
                 f"docker exec -i {session.container.name}",
                 "--timeout",

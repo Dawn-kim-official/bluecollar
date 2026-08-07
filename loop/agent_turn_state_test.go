@@ -1093,10 +1093,13 @@ func TestBuildAgentActionRequestPreservesNativeToolCallingWireShape(t *testing.T
 			t.Fatalf("expected finish schema to require %s, got %+v", fieldName, requiredFields)
 		}
 	}
-	if containsString(requiredFields, "executionStateUpdate") {
-		t.Fatalf("expected terminal execution state update to remain optional, got %+v", requiredFields)
+	if !containsString(requiredFields, "executionStateUpdate") {
+		t.Fatalf("strict structured output rejects a schema whose required list omits a declared property, got %+v", requiredFields)
 	}
 	finishProperties := mapFromAny(finishVariant["properties"])
+	if !containsString(stringSliceFromAny(mapFromAny(finishProperties["executionStateUpdate"])["type"]), "null") {
+		t.Fatal("a terminal action still need not carry an execution state update, which strict output expresses as nullable rather than absent")
+	}
 	qualityReviewItems := mapFromAny(mapFromAny(finishProperties["qualityReview"])["items"])
 	if qualityReviewItems["additionalProperties"] != false {
 		t.Fatalf("expected quality review items to reject undeclared fields, got %+v", qualityReviewItems)

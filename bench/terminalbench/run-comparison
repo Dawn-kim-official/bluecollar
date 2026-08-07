@@ -1,0 +1,60 @@
+#!/bin/bash
+set -euo pipefail
+
+environmentFileName="${BENCH_ENV_NAME:-$(printf '.%s' env)}"
+
+findEnvironmentFile() {
+  local directory="$PWD"
+  while [ "$directory" != "/" ]; do
+    if [ -f "$directory/$environmentFileName" ]; then printf '%s\n' "$directory/$environmentFileName"; return 0; fi
+    directory="$(dirname "$directory")"
+  done
+  return 1
+}
+
+environmentFile="${BENCH_ENV_FILE:-$(findEnvironmentFile || true)}"
+dataset="${BENCH_DATASET:-terminal-bench-core==0.1.1}"
+model="${BENCH_MODEL:-openai/gpt-5.6-luna}"
+endpoint="${BENCH_ENDPOINT:-https://openrouter.ai/api/v1}"
+outputRoot="${BENCH_OUTPUT:-/tmp/bench-comparison}"
+taskArguments=()
+for taskID in "$@"; do taskArguments+=(--task-id "$taskID"); done
+
+if [ -z "$environmentFile" ] || [ ! -f "$environmentFile" ]; then
+  echo "found no environment file above $PWD; set BENCH_ENV_FILE" >&2
+  exit 2
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$environmentFile"
+set +a
+
+if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+  echo "$environmentFile defines no OPENROUTER_API_KEY" >&2
+  exit 2
+fi
+
+go build -o /tmp/bluecollar ./cmd/bluecollar
+
+runHarness() {
+  local harnessName="$1" importPath="$2"
+  echo "== $harnessName on $dataset with $model =="
+  PYTHONPATH="$PWD" \
+  BLUECOLLAR_BINARY=/tmp/bluecollar \
+  BLUECOLLAR_MODEL_ENDPOINT="$endpoint" \
+  BLUECOLLAR_MODEL="$model" \
+  BLUECOLLAR_API_KEY="$OPENROUTER_API_KEY" \
+  PI_BASE_URL="$endpoint" \
+  PI_MODEL_ID="$model" \
+  PI_API_KEY="$OPENROUTER_API_KEY" \
+    uvx --from terminal-bench --with 'litellm==1.77.0' tb run \
+      --dataset "$dataset" \
+      --agent-import-path "$importPath" \
+      --model "$model" \
+      "${taskArguments[@]}" \
+      --output-path "$outputRoot/$harnessName"
+}
+
+runHarness bluecollar bench.terminalbench.bluecollar_agent:BluecollarAgent
+runHarness pi bench.terminalbench.pi_agent:PiAgent
