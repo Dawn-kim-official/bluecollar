@@ -29,6 +29,7 @@ type terminalRunOutput struct {
 	ExitCode  int    `json:"exitCode"`
 	Output    string `json:"output"`
 	Truncated bool   `json:"truncated"`
+	Completed bool   `json:"completed"`
 }
 
 var terminalRunInputSchema = json.RawMessage(`{
@@ -48,7 +49,8 @@ var terminalRunOutputSchema = json.RawMessage(`{
   "properties": {
     "exitCode": {"type": "integer"},
     "output": {"type": "string"},
-    "truncated": {"type": "boolean"}
+    "truncated": {"type": "boolean"},
+    "completed": {"type": "boolean"}
   },
   "required": ["exitCode", "output"],
   "additionalProperties": false
@@ -150,7 +152,7 @@ func firstWordOf(command string) string {
 
 func terminalRunResult(exitCode int, output string, runError error) toolcontract.ToolResult {
 	truncatedOutput, wasTruncated := truncateOutput(output)
-	document, marshalError := json.Marshal(terminalRunOutput{ExitCode: exitCode, Output: truncatedOutput, Truncated: wasTruncated})
+	document, marshalError := json.Marshal(terminalRunOutput{ExitCode: exitCode, Output: truncatedOutput, Truncated: wasTruncated, Completed: exitCode == 0})
 	if marshalError != nil {
 		return toolcontract.ToolFailureResult(toolcontract.FailureUnknown, toolcontract.FailureCodes.OperationFailed, "terminal_run", marshalError.Error())
 	}

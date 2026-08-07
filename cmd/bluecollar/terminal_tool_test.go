@@ -290,3 +290,27 @@ func TestALocalShellKeepsTheWorkspaceItWasGiven(t *testing.T) {
 		t.Fatalf("a shell that runs here already knows where here is, got %q", resolved)
 	}
 }
+
+func TestASuccessfulCommandIsVisibleAsProgress(t *testing.T) {
+	result := terminalRunResult(0, "done\n", nil)
+
+	var output terminalRunOutput
+	if errorValue := json.Unmarshal(result.Output.Data, &output); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if !output.Completed {
+		t.Fatal("the loop reads completed to decide whether a run is getting anywhere, and a harness that never sets it can never be granted more budget however well it is doing")
+	}
+}
+
+func TestAFailedCommandIsNotProgress(t *testing.T) {
+	result := terminalRunResult(1, "no such file\n", nil)
+
+	var output terminalRunOutput
+	if errorValue := json.Unmarshal(result.Output.Data, &output); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if output.Completed {
+		t.Fatal("a command that failed moved nothing forward")
+	}
+}
