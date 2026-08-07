@@ -108,6 +108,22 @@ func (agentTurnRunner *AgentTurnRunner) rejectRepeatedToolCall(taskRunID string,
 		result, shouldStop := stopForNoProgress(stepID)
 		return noProgressToolCallActionOutcome(result, shouldStop)
 	}
+	if refusedFailure, wasRefused := previousNonRetryableToolFailure(state.Observations, actionDocument.ToolName); wasRefused {
+		observation := turnObservation{
+			ObservationID: nextObservationIDForObservations(state.Observations),
+			Action:        "policy",
+			Tool:          strings.TrimSpace(actionDocument.ToolName),
+			Output: toolcontract.ToolOutput{Content: strings.TrimSpace(actionDocument.ToolName) + " failed as " + refusedFailure.ObservationID +
+				" in a way no retry can change: " + refusedFailure.Failure.UserSafeSummary +
+				". Reach the goal another way, or stop and say this tool is unusable."},
+			Failure: &toolcontract.ToolFailure{Kind: toolcontract.FailurePolicyBlocked, Code: toolcontract.FailureCodes.PolicyBlocked.String(), Stage: "policy", UserSafeSummary: strings.TrimSpace(actionDocument.ToolName) + " already failed in a way no retry can change."},
+		}
+		state.Observations = append(state.Observations, observation)
+		agentTurnRunner.appendEvent(taskRunID, "agent.non_retryable_tool_refused", marshalEventBody(observation))
+		agentTurnRunner.saveStep(taskRunID, stepID, taskstate.TaskStatusCompleted, "non_retryable_tool_refused "+actionDocument.ToolName, observation.ContentText())
+		result, shouldStop := stopForNoProgress(stepID)
+		return noProgressToolCallActionOutcome(result, shouldStop)
+	}
 	if duplicateFailure, isDuplicateFailure := previousFailedToolInput(state.Observations, actionDocument.ToolName, actionDocument.ToolInput); isDuplicateFailure {
 		observation := repeatedFailedAttemptObservation(state.Request.ToolSet, len(state.Observations)+1, duplicateFailure, firstNonEmptyString(state.Request.ActiveGoal.OriginalInstruction, state.Request.Prompt))
 		state.Observations = append(state.Observations, observation)
