@@ -69,6 +69,23 @@ func (runningShell shell) command(ctx context.Context, command string) *exec.Cmd
 	return exec.CommandContext(ctx, runningShell.commandPrefix[0], arguments...)
 }
 
+func (runningShell shell) resolvedWorkingDirectoryPath(ctx context.Context) string {
+	if len(runningShell.commandPrefix) == 0 {
+		return runningShell.workingDirectoryPath
+	}
+	capturedOutput := &bytes.Buffer{}
+	command := runningShell.command(ctx, "pwd")
+	command.Stdout = capturedOutput
+	if errorValue := command.Run(); errorValue != nil {
+		return runningShell.workingDirectoryPath
+	}
+	resolvedPath := strings.TrimSpace(capturedOutput.String())
+	if resolvedPath == "" {
+		return runningShell.workingDirectoryPath
+	}
+	return resolvedPath
+}
+
 func newWorkspaceToolSet(runningShell shell) *toolcontract.ToolSet {
 	toolSet := toolcontract.NewToolSet([]string{
 		toolcontract.TerminalRunToolName,

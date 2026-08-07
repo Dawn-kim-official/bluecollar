@@ -87,7 +87,7 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 		ConversationID:    "conversation-local",
 		Prompt:            options.prompt,
 		AgentIdentity:     agentcontract.AgentIdentity{Name: options.agentName},
-		WorkspaceRootPath: options.workspacePath,
+		WorkspaceRootPath: turnShell(options).resolvedWorkingDirectoryPath(turnContext),
 		ToolSet:           turnToolSet(options),
 	}
 
@@ -161,14 +161,18 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+func turnShell(options runOptions) shell {
+	return shell{
+		workingDirectoryPath: options.workspacePath,
+		commandPrefix:        strings.Fields(options.execPrefix),
+	}
+}
+
 func turnToolSet(options runOptions) *toolcontract.ToolSet {
 	if options.withoutTools {
 		return nil
 	}
-	return newWorkspaceToolSet(shell{
-		workingDirectoryPath: options.workspacePath,
-		commandPrefix:        strings.Fields(options.execPrefix),
-	})
+	return newWorkspaceToolSet(turnShell(options))
 }
 
 func writeMetrics(metricsPath string, taskRunService *taskstate.TaskRunService, taskRunID string) {

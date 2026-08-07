@@ -269,3 +269,24 @@ func TestFileWriteResultSatisfiesItsOwnContract(t *testing.T) {
 		t.Fatalf("a tool whose own result its contract rejects can never succeed, no matter how many times the model retries: %+v", result.Failure)
 	}
 }
+
+func TestTheHarnessAsksTheShellWhereItActuallyIs(t *testing.T) {
+	workspacePath := t.TempDir()
+	elsewhere := shell{workingDirectoryPath: workspacePath, commandPrefix: []string{"sh", "-c", "cd /tmp && \"$@\"", "--"}}
+
+	resolved := elsewhere.resolvedWorkingDirectoryPath(context.Background())
+
+	if resolved == workspacePath {
+		t.Fatal("telling the agent a host path while its shell runs somewhere else cost one task a hundred commands spent asking where it was")
+	}
+}
+
+func TestALocalShellKeepsTheWorkspaceItWasGiven(t *testing.T) {
+	workspacePath := t.TempDir()
+
+	resolved := shell{workingDirectoryPath: workspacePath}.resolvedWorkingDirectoryPath(context.Background())
+
+	if resolved != workspacePath {
+		t.Fatalf("a shell that runs here already knows where here is, got %q", resolved)
+	}
+}
