@@ -78,7 +78,7 @@ func chatCompletionRequest(modelName string, request model.ChatCompletionRequest
 func chatCompletionMessages(messages []model.ChatCompletionMessage) []map[string]any {
 	chat := make([]map[string]any, 0, len(messages))
 	for _, message := range messages {
-		entry := map[string]any{"role": message.Role, "content": message.Content}
+		entry := map[string]any{"role": message.Role, "content": messageText(message.Content, message.Parts)}
 		if message.ToolCallID != "" {
 			entry["tool_call_id"] = message.ToolCallID
 		}
@@ -93,8 +93,12 @@ func chatCompletionMessages(messages []model.ChatCompletionMessage) []map[string
 func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatCompletionResponse, error) {
 	var decoded struct {
 		Choices []struct {
-			Message      model.ChatCompletionMessage `json:"message"`
-			FinishReason string                      `json:"finish_reason"`
+			Message struct {
+				Role      string     `json:"role"`
+				Content   string     `json:"content"`
+				ToolCalls []toolCall `json:"tool_calls"`
+			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		Usage struct {
 			PromptTokens     int64 `json:"prompt_tokens"`
@@ -113,7 +117,11 @@ func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatComp
 		ProviderName: "openai-compatible",
 		ModelName:    modelName,
 		FinishReason: decoded.Choices[0].FinishReason,
-		Message:      decoded.Choices[0].Message,
+		Message: model.ChatCompletionMessage{
+			Role:      decoded.Choices[0].Message.Role,
+			Content:   decoded.Choices[0].Message.Content,
+			ToolCalls: chatCompletionToolCalls(decoded.Choices[0].Message.ToolCalls),
+		},
 		Usage: model.Usage{
 			PromptTokens:     decoded.Usage.PromptTokens,
 			CompletionTokens: decoded.Usage.CompletionTokens,
@@ -189,15 +197,16 @@ func completionRequest(modelName string, messages []model.Message, schema *model
 func chatMessages(messages []model.Message) []map[string]string {
 	chat := make([]map[string]string, 0, len(messages))
 	for _, message := range messages {
-		content := message.Content
-		for _, part := range message.Parts {
-			if part.Text != "" {
-				content += part.Text
-			}
-		}
-		chat = append(chat, map[string]string{"role": message.Role, "content": content})
+		chat = append(chat, map[string]string{"role": message.Role, "content": messageText(message.Content, message.Parts)})
 	}
 	return chat
+}
+
+func messageText(content string, parts []model.MessagePart) string {
+	for _, part := range parts {
+		content += part.Text
+	}
+	return content
 }
 
 func decodeCompletion(responseBody []byte, modelName string) (model.StructuredResponse, error) {
@@ -240,9 +249,27 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 }
 
 type toolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
 	Function struct {
+		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
+}
+
+func chatCompletionToolCalls(toolCalls []toolCall) []model.ChatCompletionToolCall {
+	calls := make([]model.ChatCompletionToolCall, 0, len(toolCalls))
+	for _, toolCall := range toolCalls {
+		calls = append(calls, model.ChatCompletionToolCall{
+			ID:   toolCall.ID,
+			Type: toolCall.Type,
+			Function: model.ChatCompletionToolCallFunction{
+				Name:      toolCall.Function.Name,
+				Arguments: toolCall.Function.Arguments,
+			},
+		})
+	}
+	return calls
 }
 
 func firstToolCallArguments(toolCalls []toolCall) (string, bool) {
