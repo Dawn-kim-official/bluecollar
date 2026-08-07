@@ -45,14 +45,99 @@ func (provider *Provider) GenerateStructuredResponse(ctx context.Context, reques
 	return provider.complete(ctx, request.Messages, &request.StructuredOutputSchema)
 }
 
+func (provider *Provider) GenerateChatCompletion(ctx context.Context, request model.ChatCompletionRequest) (model.ChatCompletionResponse, error) {
+	body, errorValue := json.Marshal(chatCompletionRequest(provider.modelName, request))
+	if errorValue != nil {
+		return model.ChatCompletionResponse{}, errorValue
+	}
+	responseBody, errorValue := provider.post(ctx, body)
+	if errorValue != nil {
+		return model.ChatCompletionResponse{}, errorValue
+	}
+	return decodeChatCompletion(responseBody, provider.modelName)
+}
+
+func chatCompletionRequest(modelName string, request model.ChatCompletionRequest) map[string]any {
+	chatRequest := map[string]any{
+		"model":    modelName,
+		"messages": chatCompletionMessages(request.Messages),
+	}
+	if len(request.Tools) > 0 {
+		chatRequest["tools"] = request.Tools
+	}
+	if len(request.ToolChoice) > 0 {
+		chatRequest["tool_choice"] = json.RawMessage(request.ToolChoice)
+	}
+	chatRequest["parallel_tool_calls"] = request.ParallelToolCalls
+	if request.GenerationOptions.MaxTokens != nil {
+		chatRequest["max_tokens"] = *request.GenerationOptions.MaxTokens
+	}
+	return chatRequest
+}
+
+func chatCompletionMessages(messages []model.ChatCompletionMessage) []map[string]any {
+	chat := make([]map[string]any, 0, len(messages))
+	for _, message := range messages {
+		entry := map[string]any{"role": message.Role, "content": message.Content}
+		if message.ToolCallID != "" {
+			entry["tool_call_id"] = message.ToolCallID
+		}
+		if len(message.ToolCalls) > 0 {
+			entry["tool_calls"] = message.ToolCalls
+		}
+		chat = append(chat, entry)
+	}
+	return chat
+}
+
+func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatCompletionResponse, error) {
+	var decoded struct {
+		Choices []struct {
+			Message      model.ChatCompletionMessage `json:"message"`
+			FinishReason string                      `json:"finish_reason"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+			TotalTokens      int64 `json:"total_tokens"`
+		} `json:"usage"`
+	}
+	if errorValue := json.Unmarshal(responseBody, &decoded); errorValue != nil {
+		return model.ChatCompletionResponse{}, errorValue
+	}
+	if len(decoded.Choices) == 0 {
+		return model.ChatCompletionResponse{}, errors.New("model endpoint returned no choices")
+	}
+	return model.ChatCompletionResponse{
+		Transport:    "http",
+		ProviderName: "openai-compatible",
+		ModelName:    modelName,
+		FinishReason: decoded.Choices[0].FinishReason,
+		Message:      decoded.Choices[0].Message,
+		Usage: model.Usage{
+			PromptTokens:     decoded.Usage.PromptTokens,
+			CompletionTokens: decoded.Usage.CompletionTokens,
+			TotalTokens:      decoded.Usage.TotalTokens,
+		},
+	}, nil
+}
+
 func (provider *Provider) complete(ctx context.Context, messages []model.Message, schema *model.StructuredOutputSchema) (model.StructuredResponse, error) {
 	body, errorValue := json.Marshal(completionRequest(provider.modelName, messages, schema))
 	if errorValue != nil {
 		return model.StructuredResponse{}, errorValue
 	}
-	httpRequest, errorValue := http.NewRequestWithContext(ctx, http.MethodPost, provider.endpointURL+"/chat/completions", bytes.NewReader(body))
+	responseBody, errorValue := provider.post(ctx, body)
 	if errorValue != nil {
 		return model.StructuredResponse{}, errorValue
+	}
+	return decodeCompletion(responseBody, provider.modelName)
+}
+
+func (provider *Provider) post(ctx context.Context, body []byte) ([]byte, error) {
+	httpRequest, errorValue := http.NewRequestWithContext(ctx, http.MethodPost, provider.endpointURL+"/chat/completions", bytes.NewReader(body))
+	if errorValue != nil {
+		return nil, errorValue
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
 	if provider.apiKey != "" {
@@ -61,18 +146,18 @@ func (provider *Provider) complete(ctx context.Context, messages []model.Message
 
 	httpResponse, errorValue := provider.httpClient.Do(httpRequest)
 	if errorValue != nil {
-		return model.StructuredResponse{}, errorValue
+		return nil, errorValue
 	}
 	defer httpResponse.Body.Close()
 
 	responseBody, errorValue := io.ReadAll(httpResponse.Body)
 	if errorValue != nil {
-		return model.StructuredResponse{}, errorValue
+		return nil, errorValue
 	}
 	if httpResponse.StatusCode != http.StatusOK {
-		return model.StructuredResponse{}, fmt.Errorf("model endpoint returned %d: %s", httpResponse.StatusCode, truncated(string(responseBody)))
+		return nil, fmt.Errorf("model endpoint returned %d: %s", httpResponse.StatusCode, truncated(string(responseBody)))
 	}
-	return decodeCompletion(responseBody, provider.modelName)
+	return responseBody, nil
 }
 
 func completionRequest(modelName string, messages []model.Message, schema *model.StructuredOutputSchema) map[string]any {
