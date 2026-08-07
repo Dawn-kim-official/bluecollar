@@ -2199,3 +2199,14 @@ func TestAContractStillRequiresAToolThePaletteDoesCall(t *testing.T) {
 		t.Fatal("expected the gate to keep asking for evidence from a tool the task can actually call")
 	}
 }
+
+func TestARequiredFileResultIsNotRequiredWhenNothingCanDeliverIt(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+	contract := OutcomeContract{ExpectedResults: []ExpectedResult{{Type: ExpectedResultTypeFile, Required: true}}}
+
+	reduced := contractReducedToCallableTools(toolSet, contract)
+
+	if expectedResultRequiresFileAttachment(reduced) {
+		t.Fatal("a required file on a task that holds only a terminal is a demand no turn can meet, and the run spends every remaining turn on it")
+	}
+}

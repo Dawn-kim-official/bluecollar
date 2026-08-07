@@ -430,7 +430,19 @@ func contractReducedToCallableTools(toolSet *toolcontract.ToolSet, contract Outc
 		contract.ArtifactRequirement = ArtifactRequirementPreferred
 	}
 	contract.RequiredAttachmentSuffixes = nil
+	contract.ExpectedResults = expectedResultsWithFilesNoLongerRequired(contract.ExpectedResults)
 	return contract
+}
+
+func expectedResultsWithFilesNoLongerRequired(expectedResults []ExpectedResult) []ExpectedResult {
+	relaxed := make([]ExpectedResult, 0, len(expectedResults))
+	for _, expectedResult := range expectedResults {
+		if expectedResult.Type == ExpectedResultTypeFile {
+			expectedResult.Required = false
+		}
+		relaxed = append(relaxed, expectedResult)
+	}
+	return relaxed
 }
 
 func callableToolNames(toolSet *toolcontract.ToolSet, toolNames []string) []string {
