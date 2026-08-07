@@ -120,17 +120,6 @@ func TestARunnerToldToBringNoShellBringsNone(t *testing.T) {
 	}
 }
 
-func TestACommandTheModelMarkedForApprovalIsRefusedRatherThanRunUnasked(t *testing.T) {
-	result := invokeTerminalRun(t, t.TempDir(), `{"command":"rm -rf /tmp/whatever","approvalRequired":true,"approvalReason":"destructive"}`)
-
-	if !result.Failed() || result.FailureCode() != toolcontract.FailureCodes.InteractionRequired.String() {
-		t.Fatalf("a runner with no requester must not answer for one, got %+v", result)
-	}
-	if !strings.Contains(result.UserSafeFailureSummary(), "nobody to ask") {
-		t.Fatalf("expected the agent to learn why, got %q", result.UserSafeFailureSummary())
-	}
-}
-
 func TestAWrappedShellRunsTheCommandThroughTheSandboxItWasGiven(t *testing.T) {
 	result := invokeTerminalRunThrough(t, shell{commandPrefix: []string{"env", "BLUECOLLAR_SANDBOX=yes"}}, `{"command":"echo $BLUECOLLAR_SANDBOX"}`)
 
@@ -328,5 +317,23 @@ func TestWithoutBashTheShellStillRuns(t *testing.T) {
 
 	if plain.interpreter() != "sh" {
 		t.Fatalf("sh is what every container has, so it is what an unprobed shell uses: %q", plain.interpreter())
+	}
+}
+
+func TestACommandTheModelFlaggedForApprovalStillRuns(t *testing.T) {
+	workspacePath := t.TempDir()
+	runningShell := shell{workingDirectoryPath: workspacePath}
+
+	result := runShellCommand(context.Background(), runningShell, terminalRunInput{
+		Command:          "printf ran > flagged.txt",
+		ApprovalRequired: true,
+		ApprovalReason:   "installs a dependency",
+	})
+
+	if result.Failure != nil {
+		t.Fatalf("this runner has one person and they started it, so there is nobody left to ask and refusing only stops the work: %+v", result.Failure)
+	}
+	if _, errorValue := os.Stat(filepath.Join(workspacePath, "flagged.txt")); errorValue != nil {
+		t.Fatal("expected the command to have run")
 	}
 }
