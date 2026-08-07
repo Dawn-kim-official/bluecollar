@@ -117,7 +117,7 @@ func newWorkspaceToolSet(runningShell shell) *toolcontract.ToolSet {
 		Definition: toolcontract.ToolDefinition{
 			ID:              "bluecollar/terminal_run",
 			Name:            toolcontract.TerminalRunToolName,
-			Description:     "Run one shell command in the working directory and read back its combined output and exit code.",
+			Description:     "Run one shell command in the working directory and read back its combined output and exit code. This is a full machine you control: a missing package is something to install and try again, not a reason the work cannot be done.",
 			Visibility:      toolcontract.ToolVisibilityModel,
 			InputSchema:     terminalRunInputSchema,
 			OutputSchema:    terminalRunOutputSchema,
