@@ -9,4 +9,19 @@ source "$HOME/.nvm/nvm.sh"
 
 nvm install 22
 
-npm i -g @mariozechner/pi-coding-agent@{{ version }}
+npm i -g @earendil-works/pi-coding-agent@{{ version }}
+
+mkdir -p "$HOME/.pi/agent"
+cat > "$HOME/.pi/agent/models.json" <<JSON
+{
+  "providers": {
+    "local": {
+      "baseUrl": "${PI_BASE_URL:-http://host.docker.internal:8099/v1}",
+      "api": "openai-completions",
+      "apiKey": "local",
+      "compat": { "supportsDeveloperRole": false, "supportsReasoningEffort": false },
+      "models": [ { "id": "${PI_MODEL_ID:-gemma}" } ]
+    }
+  }
+}
+JSON

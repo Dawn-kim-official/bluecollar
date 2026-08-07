@@ -61,3 +61,25 @@ silently measures a harness that never spoke to a model. bluecollar runs on the
 host and reaches only the container's shell, so it uses the endpoint directly.
 pi is installed inside the container, so it needs a base URL the container can
 resolve: `host.docker.internal`, not `127.0.0.1`.
+
+## First recorded row
+
+Terminal-Bench `terminal-bench-core==0.1.1`, task `hello-world`, model
+`gemma-4-E4B-it UD-Q4_K_XL` served by llama.cpp with the MTP drafter, one
+attempt each.
+
+| harness | resolved | turns | tool calls | prompt bytes/turn | wall clock |
+|---|---|---|---|---|---|
+| bluecollar | no | 40 | 25 | 30,974 | 277s |
+| pi | no | 1 | 0 | not reported | 42s |
+
+Neither solved it, and the shapes are opposite. bluecollar kept working until it
+hit its iteration ceiling; pi answered "I am a Large Language Model developed by
+Google DeepMind. How can I assist you today?" and stopped. A pass rate alone
+would have called these the same result.
+
+Two things this row does not say. The model is small enough that both failures
+may be its own, so this is a floor rather than a verdict. And pi reports no
+per-run figures, so its column is what Terminal-Bench observed from outside,
+while bluecollar's comes from its own ledger — an asymmetry worth closing before
+reading much into the middle columns.
