@@ -44,3 +44,20 @@ Hold the model, the dataset and the task list fixed, change only
 `--agent-import-path`, and the difference is the harness. Reading a pass rate
 alone hides the part that separates two harnesses on one model, which is what
 each put in front of it — that figure is `promptTokensPerTurn`.
+
+`pi_agent.py` puts [pi](https://github.com/earendil-works/pi) on the same row:
+
+```bash
+OPENAI_BASE_URL=http://host.docker.internal:11434/v1 OPENAI_API_KEY=ollama \
+uvx --from terminal-bench --with 'litellm==1.77.0' tb run \
+  --dataset terminal-bench-core==0.1.1 \
+  --agent-import-path bench.terminalbench.pi_agent:PiAgent \
+  --model qwen3:4b \
+  --task-id hello-world
+```
+
+The two agents reach the model from different sides, and getting this wrong
+silently measures a harness that never spoke to a model. bluecollar runs on the
+host and reaches only the container's shell, so it uses the endpoint directly.
+pi is installed inside the container, so it needs a base URL the container can
+resolve: `host.docker.internal`, not `127.0.0.1`.
