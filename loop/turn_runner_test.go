@@ -2631,3 +2631,27 @@ func TestTerminalStructuredRequestsCarryMaxTokensCap(t *testing.T) {
 		}
 	}
 }
+
+func TestTheRuntimeSuppliesTheObservationIDItAlreadyKnows(t *testing.T) {
+	observations := []turnObservation{
+		{ObservationID: "obs-001", Tool: toolcontract.TerminalRunToolName},
+		{ObservationID: "obs-002", Tool: toolcontract.TerminalRunToolName, Failure: &toolcontract.ToolFailure{Kind: toolcontract.FailureNotFound}},
+		{ObservationID: "obs-003", Tool: toolcontract.TerminalRunToolName},
+	}
+
+	cited, canCite := latestSuccessfulObservationForTool(observations, toolcontract.TerminalRunToolName)
+
+	if !canCite || cited.ObservationID != "obs-003" {
+		t.Fatalf("the runtime rejected eighteen finish attempts over an observation ID it could read off its own ledger, got %q", cited.ObservationID)
+	}
+}
+
+func TestNoObservationIsInventedWhenTheToolNeverSucceeded(t *testing.T) {
+	observations := []turnObservation{
+		{ObservationID: "obs-001", Tool: toolcontract.TerminalRunToolName, Failure: &toolcontract.ToolFailure{Kind: toolcontract.FailureNotFound}},
+	}
+
+	if _, canCite := latestSuccessfulObservationForTool(observations, toolcontract.TerminalRunToolName); canCite {
+		t.Fatal("supplying evidence for work that never succeeded would let the runtime sign off on a claim the ledger contradicts")
+	}
+}

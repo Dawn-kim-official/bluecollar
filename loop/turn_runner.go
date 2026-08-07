@@ -1782,8 +1782,11 @@ func (agentTurnRunner *AgentTurnRunner) finalizeSatisfiedTurn(ctx context.Contex
 		return AgentTurnResult{}, false
 	}
 	if !completionEvidenceIncludesSuccessfulTool(observations, actionDocument.CompletionEvidence, requiredToolName) {
-		agentTurnRunner.appendEvent(taskRunID, "agent.finalizer_rejected", marshalEventBody(map[string]string{"reason": "finalizer omitted successful evidence for the repeated tool"}))
-		return AgentTurnResult{}, false
+		supplied, wasSupplied := agentTurnRunner.supplyOmittedCompletionEvidence(taskRunID, observations, requiredToolName)
+		if !wasSupplied {
+			return AgentTurnResult{}, false
+		}
+		actionDocument.CompletionEvidence = append(actionDocument.CompletionEvidence, supplied)
 	}
 	completionGateResult := agentTurnRunner.validateCompletionGateWithJudge(finalizationContext, taskRunID, request, requirements, observations, nil, criteria, actionDocument)
 	if !completionGateResult.IsSatisfied {
@@ -1803,6 +1806,46 @@ func (agentTurnRunner *AgentTurnRunner) finalizeSatisfiedTurn(ctx context.Contex
 		agentTurnRunner.appendEvent(taskRunID, "agent.completion_persist_failed", marshalEventBody(map[string]string{"error": completionError.Error()}))
 	}
 	return AgentTurnResult{TaskRun: completedTaskRun, FinishMessage: reply, Attachments: completionGateResult.Attachments, RecoveryActions: recoveryActionsFromObservations(observations)}, true
+}
+
+const omittedEvidenceRejectionReason = "finalizer omitted successful evidence for the repeated tool"
+
+func (agentTurnRunner *AgentTurnRunner) supplyOmittedCompletionEvidence(taskRunID string, observations []turnObservation, requiredToolName string) (completionEvidenceReference, bool) {
+	citedObservation, canCite := latestSuccessfulObservationForTool(observations, requiredToolName)
+	if !canCite || !agentTurnRunner.hasAlreadyRejectedFinalizerForOmittedEvidence(taskRunID) {
+		agentTurnRunner.appendEvent(taskRunID, "agent.finalizer_rejected", marshalEventBody(map[string]string{"reason": omittedEvidenceRejectionReason}))
+		return completionEvidenceReference{}, false
+	}
+	agentTurnRunner.appendEvent(taskRunID, "agent.finalizer_evidence_supplied", marshalEventBody(map[string]string{
+		"toolName":      strings.TrimSpace(citedObservation.Tool),
+		"observationID": citedObservation.ObservationID,
+	}))
+	return completionEvidenceReference{ObservationID: citedObservation.ObservationID, ToolName: strings.TrimSpace(citedObservation.Tool)}, true
+}
+
+func (agentTurnRunner *AgentTurnRunner) hasAlreadyRejectedFinalizerForOmittedEvidence(taskRunID string) bool {
+	for _, taskEvent := range agentTurnRunner.taskRunService.ListTaskEvent(taskRunID) {
+		if taskEvent.Name != "agent.finalizer_rejected" {
+			continue
+		}
+		rejection := map[string]string{}
+		if json.Unmarshal([]byte(taskEvent.Body), &rejection) == nil && rejection["reason"] == omittedEvidenceRejectionReason {
+			return true
+		}
+	}
+	return false
+}
+
+func latestSuccessfulObservationForTool(observations []turnObservation, toolName string) (turnObservation, bool) {
+	trimmedToolName := strings.TrimSpace(toolName)
+	for index := len(observations) - 1; index >= 0; index-- {
+		observation := observations[index]
+		if observation.Failed() || !toolcontract.ToolNamesMatch(observation.Tool, trimmedToolName) {
+			continue
+		}
+		return observation, true
+	}
+	return turnObservation{}, false
 }
 
 func completionEvidenceIncludesSuccessfulTool(observations []turnObservation, references []completionEvidenceReference, requiredToolName string) bool {
