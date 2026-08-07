@@ -414,20 +414,6 @@ func validateCompletionGateForRequestWithExpectedResults(request AgentTurnReques
 	return validateExpectedResultDelivery(request, observations, result.Attachments, actionDocument)
 }
 
-func hasRecordedFileEffect(observations []turnObservation) bool {
-	for _, observation := range observations {
-		if observation.Failed() {
-			continue
-		}
-		for _, effect := range observation.Effects {
-			if effect.ObjectType == "file" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func contractReducedToCallableTools(toolSet *toolcontract.ToolSet, contract OutcomeContract) OutcomeContract {
 	contract.RequiredEvidenceTools = callableToolNames(toolSet, contract.RequiredEvidenceTools)
 	anyOfGroups := [][]string{}
@@ -438,9 +424,6 @@ func contractReducedToCallableTools(toolSet *toolcontract.ToolSet, contract Outc
 	}
 	contract.RequiredEvidenceAnyOf = anyOfGroups
 	if isToolCallable(toolSet, toolcontract.FileDeliverToolName) {
-		return contract
-	}
-	if isToolCallable(toolSet, toolcontract.FileWriteToolName) {
 		return contract
 	}
 	if contract.ArtifactRequirement == ArtifactRequirementRequired {
@@ -491,7 +474,7 @@ func validateOutcomeContractRequirements(contract OutcomeContract, observations 
 			return missingContractToolResult(toolNames)
 		}
 	}
-	if contractRequiresAttachment(contract) && len(attachments) == 0 && !hasRecordedFileEffect(observations) {
+	if contractRequiresAttachment(contract) && len(attachments) == 0 {
 		return completionGateResult{Message: "finish requires a delivered file attachment", EvidenceKind: evidenceKindAttachment, SuggestedNextTools: []string{toolcontract.FileDeliverToolName}}
 	}
 	if missingSuffix := missingRequiredAttachmentSuffix(attachments, contract.RequiredAttachmentSuffixes); missingSuffix != "" {
@@ -548,7 +531,7 @@ func validateExpectedResultCompletionGate(request AgentTurnRequest, observations
 			SuggestedNextTools: requiredSendToolNames,
 		}
 	}
-	if expectedResultRequiresFileAttachment(request.OutcomeContract) && len(attachments) == 0 && !hasRecordedFileEffect(observations) {
+	if expectedResultRequiresFileAttachment(request.OutcomeContract) && len(attachments) == 0 {
 		return completionGateResult{
 			Message:            "required file expected result must cite file_deliver completionEvidence",
 			EvidenceKind:       evidenceKindAttachment,
