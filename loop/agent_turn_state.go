@@ -428,7 +428,7 @@ func buildAgentActionRequest(state agentTaskState, includeToolDescription bool) 
 		Messages: messages,
 		StructuredOutputSchema: model.StructuredOutputSchema{
 			Name:               "bluecollar_agent_turn_action",
-			Document:           actionSchemaForToolSet(modelToolSet, allowQualityCriteria, blockedToolNames, hasFailureDebt, allowFail, allowFinish),
+			Document:           actionSchemaForToolSet(modelToolSet, citableEvidenceIDs(state.Observations), allowQualityCriteria, blockedToolNames, hasFailureDebt, allowFail, allowFinish),
 			IsStrictlyEnforced: true,
 		},
 		GenerationOptions: agentActionGenerationOptions(state.Options.GenerationOptions),
@@ -503,11 +503,19 @@ func finishWasRejectedWithoutAnyToolEvidence(observations []turnObservation) boo
 	return true
 }
 
-func actionSchemaForToolSet(toolSet *toolcontract.ToolSet, allowQualityCriteria bool, blockedToolNames map[string]bool, hasFailureDebt bool, allowFailValues ...bool) string {
-	if toolSet == nil {
-		return buildActionSchemaFromToolDefinitions(nil, allowQualityCriteria, blockedToolNames, hasFailureDebt, allowFailValues...)
+func actionSchemaForToolSet(toolSet *toolcontract.ToolSet, citableEvidenceIDs []string, allowQualityCriteria bool, blockedToolNames map[string]bool, hasFailureDebt bool, allowFailValues ...bool) string {
+	return actionSchemaCitingEvidence(toolSet, citableEvidenceIDs, allowQualityCriteria, blockedToolNames, hasFailureDebt, allowFailValues...)
+}
+
+func citableEvidenceIDs(observations []turnObservation) []string {
+	evidenceIDs := []string{}
+	for _, observation := range observations {
+		if observation.Failed() || strings.TrimSpace(observation.Tool) == "" {
+			continue
+		}
+		evidenceIDs = append(evidenceIDs, observation.ObservationID)
 	}
-	return ActionSchemaForToolSet(toolSet, allowQualityCriteria, blockedToolNames, hasFailureDebt, allowFailValues...)
+	return evidenceIDs
 }
 
 func ParseAgentActionResponse(response model.StructuredResponse) (agentAction, error) {

@@ -27,7 +27,7 @@ func TestActionSchemasRecursivelyCloseEveryObject(t *testing.T) {
 		}`),
 	}}
 	schemaDocuments := map[string]string{
-		"agent action":      buildActionSchemaFromToolDefinitions(toolDefinitions, true, nil, true),
+		"agent action":      buildActionSchemaFromToolDefinitions(toolDefinitions, nil, true, nil, true),
 		"finalizer":         finalizerActionSchema(),
 		"terminal no tools": terminalNoToolsActionSchema(),
 		"recovery decision": recoveryDecisionSchema(),
@@ -49,7 +49,7 @@ const eightToolActionSchemaByteCeiling = 19500
 func TestActionSchemaSharedEnvelopeByteBudget(t *testing.T) {
 	toolDefinitions := eightToolCapabilityCatalogFixture(t)
 
-	schemaDocument := buildActionSchemaFromToolDefinitions(toolDefinitions, true, nil, false)
+	schemaDocument := buildActionSchemaFromToolDefinitions(toolDefinitions, nil, true, nil, false)
 
 	t.Logf("action schema byte length for an 8-tool catalog: %d", len(schemaDocument))
 	if len(schemaDocument) >= eightToolActionSchemaByteCeiling {
@@ -65,7 +65,7 @@ func TestActionSchemaSharedEnvelopeByteBudget(t *testing.T) {
 }
 
 func legacyRootOneOfFinalizerSchema(hasFailureDebt bool) string {
-	return mustMarshalStructuredSchema(map[string]any{"oneOf": []any{finishActionSchema(hasFailureDebt), failActionSchema(hasFailureDebt)}})
+	return mustMarshalStructuredSchema(map[string]any{"oneOf": []any{finishActionSchema(hasFailureDebt, nil), failActionSchema(hasFailureDebt)}})
 }
 
 func TestTerminalActionSchemasAreFlatAndSmallerThanTheLegacyRootOneOf(t *testing.T) {
@@ -197,7 +197,7 @@ func TestAStrictActionSchemaRequiresEveryPropertyItDeclares(t *testing.T) {
 
 	for _, allowQualityCriteria := range []bool{false, true} {
 		for _, hasFailureDebt := range []bool{false, true} {
-			document := actionSchemaForToolSet(toolSet, allowQualityCriteria, nil, hasFailureDebt, true, true)
+			document := actionSchemaForToolSet(toolSet, nil, allowQualityCriteria, nil, hasFailureDebt, true, true)
 			missing := propertiesMissingFromRequired(t, document)
 			if len(missing) > 0 {
 				t.Fatalf("a strict schema whose required list omits %v is rejected before the model ever sees it (quality=%v debt=%v)", missing, allowQualityCriteria, hasFailureDebt)
@@ -257,4 +257,65 @@ func asStrings(value any) []string {
 		}
 	}
 	return names
+}
+
+func TestFinishCanOnlyCiteEvidenceThatExists(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+
+	document := actionSchemaForToolSet(toolSet, []string{"obs-001", "obs-003"}, false, nil, false, true, true)
+
+	var schema any
+	if errorValue := json.Unmarshal([]byte(document), &schema); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	allowed := completionEvidenceEnumInSchema(t, schema)
+	if len(allowed) != 2 || allowed[0] != "obs-001" || allowed[1] != "obs-003" {
+		t.Fatalf("a model that can name an observation the run never made will be refused every turn until the run dies, got %v", allowed)
+	}
+}
+
+func TestFinishCitesFreelyWhenThereIsNoEvidenceToName(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+
+	document := actionSchemaForToolSet(toolSet, nil, false, nil, false, true, true)
+
+	var schema any
+	if errorValue := json.Unmarshal([]byte(document), &schema); errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if allowed := completionEvidenceEnumInSchema(t, schema); allowed != nil {
+		t.Fatalf("an empty enum is not a schema any model can satisfy, got %v", allowed)
+	}
+}
+
+func completionEvidenceEnumInSchema(t *testing.T, node any) []string {
+	t.Helper()
+	object, isObject := node.(map[string]any)
+	if !isObject {
+		list, isList := node.([]any)
+		if !isList {
+			return nil
+		}
+		for _, item := range list {
+			if found := completionEvidenceEnumInSchema(t, item); found != nil {
+				return found
+			}
+		}
+		return nil
+	}
+	properties, hasProperties := object["properties"].(map[string]any)
+	if hasProperties {
+		if evidence, hasEvidence := properties["completionEvidenceIDs"].(map[string]any); hasEvidence {
+			items, hasItems := evidence["items"].(map[string]any)
+			if hasItems {
+				return stringSliceFromAny(items["enum"])
+			}
+		}
+	}
+	for _, child := range object {
+		if found := completionEvidenceEnumInSchema(t, child); found != nil {
+			return found
+		}
+	}
+	return nil
 }
