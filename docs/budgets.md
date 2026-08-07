@@ -195,10 +195,14 @@ So the loop no longer grants itself time. It finishes if it can, and
 otherwise says how far it got — which is what a person does, and leaves the
 decision to continue with whoever asked.
 
+Continuing needs nothing new. The report is a message, and a reply asking to
+carry on arrives as one: intake routes it as `outcome_recovery` against the
+prior task, which carries that task's prompt, result and contract forward.
+`ask_input` is not the shape for this — that is a tool the model calls, and a
+budget running out is the runtime stopping, not the model asking.
+
 ## What is still owed
 
 - Cost. Every run before today reported `costUSD` zero because the reference
   provider never asked the endpoint to account for it. It asks now, and once
   enough runs carry real cost the same percentile method applies to money.
-- Whether "here is how far I got" should come with a way to say "carry on",
-  so the requester can grant what the loop no longer grants itself.
