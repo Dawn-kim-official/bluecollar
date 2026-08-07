@@ -184,6 +184,37 @@ The tests hold the shape rather than the digits: every tier must at least
 double the one below it, and the first working tier must equal the measured
 percentile.
 
+## What removing the escalation cost
+
+Progress-gated escalation and the budgets it escalated were both replaced —
+the budgets derived from successful runs, the escalation deleted outright.
+The same eight tasks, same model, before and after:
+
+| | before | after |
+|---|---|---|
+| solved | 4 | 4 |
+| median turns | 18 | 14 |
+| median wall clock | 131s | 115s |
+| runs reaching a proper end | 4/8 | 5/8 |
+
+Nothing was lost. What changed is what the failures cost:
+
+| task | before | after | verdict |
+|---|---|---|---|
+| fix-git | 101 turns | 27 | unsolved either way |
+| chess-best-move | 102 turns | 27 | unsolved either way |
+| count-dataset-tokens | 102 turns | 28 | unsolved either way |
+| csv-to-parquet | 34 turns, nothing passing | 12 turns, half the assertions | better |
+
+Three tasks spent a hundred turns to arrive exactly where twenty-seven takes
+them. Those seventy-three turns were waste, and escalation was what bought
+them: two durable progress events was enough to buy a bigger budget and a
+better model, and a task grinding on shell commands produces those easily.
+
+csv-to-parquet got better rather than merely cheaper. It had been grinding to
+its ceiling and finishing with nothing; it now completes and passes half the
+benchmark's assertions.
+
 ## Reading a run back
 
 ```bash
