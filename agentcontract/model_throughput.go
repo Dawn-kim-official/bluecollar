@@ -11,21 +11,19 @@ type ModelThroughput struct {
 	SampleCount int
 }
 
-func supportedFloorCostPerCall() time.Duration {
-	generating := time.Duration(float64(measuredOutputTokensPerModelCall) / supportedFloorOutputTokensPerSecond * float64(time.Second))
+func unmeasuredCostPerCall() time.Duration {
+	generating := time.Duration(float64(measuredOutputTokensPerModelCall) / unmeasuredOutputTokensPerSecond * float64(time.Second))
 	return localCostPerModelCall + generating
 }
 
-func (throughput ModelThroughput) MeetsSupportedFloor() bool {
-	return throughput.CostPerCall <= 0 || throughput.CostPerCall <= supportedFloorCostPerCall()
-}
-
-func DurationForIterationCount(iterationCount int, throughput ModelThroughput) time.Duration {
-	floor := time.Duration(iterationCount) * supportedFloorCostPerCall() * durationMargin
-	if throughput.CostPerCall <= 0 {
-		return floor
+func DurationForIterationCount(iterationCount int, throughput ModelThroughput, ceiling time.Duration) time.Duration {
+	costPerCall := throughput.CostPerCall
+	if costPerCall <= 0 {
+		costPerCall = unmeasuredCostPerCall()
 	}
-	return min(time.Duration(iterationCount)*throughput.CostPerCall*durationMargin, floor)
+	measured := time.Duration(iterationCount) * costPerCall * durationMargin
+	shortest := time.Duration(iterationCount) * fastestPlausibleCostPerCall * durationMargin
+	return min(max(measured, shortest), ceiling)
 }
 
 type ThroughputObserver struct {
@@ -34,7 +32,7 @@ type ThroughputObserver struct {
 	lastRecordedFor string
 }
 
-const throughputSampleCeiling = 200
+const throughputSampleCeiling = 100
 
 func NewThroughputObserver() *ThroughputObserver {
 	return &ThroughputObserver{latencyByModel: map[string][]time.Duration{}}

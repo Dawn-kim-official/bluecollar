@@ -5,6 +5,7 @@ import (
 )
 
 type TaskLevelProfile struct {
+	CostCeiling       time.Duration
 	TaskLevel         TaskLevel
 	Duration          time.Duration
 	MaxIterationCount int
@@ -17,11 +18,18 @@ const (
 	answerWithoutToolsIterationCount        = 4
 	answerWithoutToolsToolCallCount         = 1
 
-	supportedFloorOutputTokensPerSecond = 20
-	measuredOutputTokensPerModelCall    = 205
-	localCostPerModelCall               = 200 * time.Millisecond
-	durationMargin                      = 2
+	unmeasuredOutputTokensPerSecond  = 20
+	measuredOutputTokensPerModelCall = 205
+	localCostPerModelCall            = 200 * time.Millisecond
+	durationMargin                   = 2
+	firstTierCostCeiling             = 15 * time.Minute
+	answerWithoutToolsCostCeiling    = 2 * time.Minute
+	fastestPlausibleCostPerCall      = time.Second
 )
+
+func costCeilingForDoublings(doublings int) time.Duration {
+	return firstTierCostCeiling << doublings
+}
 
 func escalatedFrom(firstTierBudget int, doublings int) int {
 	return firstTierBudget << doublings
@@ -31,7 +39,8 @@ func profileForTier(taskLevel TaskLevel, doublings int) TaskLevelProfile {
 	iterationCount := escalatedFrom(measuredSuccessfulIterationPercentile95, doublings)
 	return TaskLevelProfile{
 		TaskLevel:         taskLevel,
-		Duration:          DurationForIterationCount(iterationCount, ModelThroughput{}),
+		CostCeiling:       costCeilingForDoublings(doublings),
+		Duration:          DurationForIterationCount(iterationCount, ModelThroughput{}, costCeilingForDoublings(doublings)),
 		MaxIterationCount: iterationCount,
 		MaxToolCallCount:  escalatedFrom(measuredSuccessfulToolCallPercentile95, doublings),
 	}
@@ -40,7 +49,8 @@ func profileForTier(taskLevel TaskLevel, doublings int) TaskLevelProfile {
 var taskLevelProfiles = []TaskLevelProfile{
 	{
 		TaskLevel:         TaskLevelXLow,
-		Duration:          DurationForIterationCount(answerWithoutToolsIterationCount, ModelThroughput{}),
+		CostCeiling:       answerWithoutToolsCostCeiling,
+		Duration:          DurationForIterationCount(answerWithoutToolsIterationCount, ModelThroughput{}, answerWithoutToolsCostCeiling),
 		MaxIterationCount: answerWithoutToolsIterationCount,
 		MaxToolCallCount:  answerWithoutToolsToolCallCount,
 	},

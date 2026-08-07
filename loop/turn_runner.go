@@ -17,6 +17,7 @@ import (
 const maximumElapsedClosingDuration = time.Minute
 
 type AgentTurnRunner struct {
+	throughputObserver             *ThroughputObserver
 	taskRunService                 taskstate.TaskRunStore
 	taskStepService                taskstate.TaskStepStore
 	taskArtifactService            taskstate.TaskArtifactStore
@@ -172,6 +173,7 @@ func NewAgentTurnRunnerWithRecoveryModel(taskRunService taskstate.TaskRunStore, 
 	}
 	normalizedOptions := normalizeTurnOptions(options)
 	return &AgentTurnRunner{
+		throughputObserver:     NewThroughputObserver(),
 		taskRunService:         taskRunService,
 		taskStepService:        taskStepService,
 		taskArtifactService:    taskArtifactService,
@@ -189,15 +191,9 @@ func (agentTurnRunner *AgentTurnRunner) UseTaskLevelLanguageModelResolver(resolv
 func (agentTurnRunner *AgentTurnRunner) llmCallObserverForTaskRun(taskRunID string) llmCallObserver {
 	return func(record llmCallRecord) {
 		agentTurnRunner.appendEvent(taskRunID, "llm.call", marshalEventBody(record))
-		observeModelThroughput(record)
+		agentTurnRunner.throughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
 	}
 }
-
-func observeModelThroughput(record llmCallRecord) {
-	sharedThroughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
-}
-
-var sharedThroughputObserver = NewThroughputObserver()
 
 func normalizeTurnOptions(options TurnOptions) TurnOptions {
 	taskLevelProfile := TaskLevelProfileForLevel(options.TaskLevel)

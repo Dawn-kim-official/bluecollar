@@ -14,6 +14,7 @@ import (
 )
 
 type AgentKernel struct {
+	throughputObserver      *ThroughputObserver
 	taskRunService          taskstate.TaskRunStore
 	taskStepService         taskstate.TaskStepStore
 	taskArtifactService     taskstate.TaskArtifactStore
@@ -36,6 +37,7 @@ type AgentKernel struct {
 
 func NewAgentKernel(taskRunService taskstate.TaskRunStore, taskStepService taskstate.TaskStepStore) *AgentKernel {
 	return &AgentKernel{
+		throughputObserver:  NewThroughputObserver(),
 		taskRunService:      taskRunService,
 		taskStepService:     taskStepService,
 		taskArtifactService: taskstate.NewTaskArtifactService(),
@@ -656,7 +658,7 @@ func (agentKernel *AgentKernel) taskRunForRequest(request AgentRequest) taskstat
 func (agentKernel *AgentKernel) appendTurnRouterCallRecords(taskRunID string, records []llmCallRecord) {
 	for _, record := range records {
 		agentKernel.taskRunService.AppendTaskEvent(taskRunID, "llm.call", marshalEventBody(record))
-		observeModelThroughput(record)
+		agentKernel.observeModelThroughput(record)
 	}
 }
 
@@ -836,12 +838,16 @@ func (agentKernel *AgentKernel) turnOptionsForIntakeDecision(intakeDecision Inta
 	baseOptions.TaskLevel = taskLevelProfile.TaskLevel
 	baseOptions.MaxIterationCount = taskLevelProfile.MaxIterationCount
 	baseOptions.MaxToolCallCount = taskLevelProfile.MaxToolCallCount
-	baseOptions.MaxElapsedSecond = int(elapsedBudgetForProfile(taskLevelProfile).Seconds())
+	baseOptions.MaxElapsedSecond = int(agentKernel.elapsedBudgetForProfile(taskLevelProfile).Seconds())
 	return baseOptions
 }
 
-func elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile) time.Duration {
-	return DurationForIterationCount(taskLevelProfile.MaxIterationCount, sharedThroughputObserver.ThroughputOfModelInUse())
+func (agentKernel *AgentKernel) observeModelThroughput(record llmCallRecord) {
+	agentKernel.throughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
+}
+
+func (agentKernel *AgentKernel) elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile) time.Duration {
+	return DurationForIterationCount(taskLevelProfile.MaxIterationCount, agentKernel.throughputObserver.ThroughputOfModelInUse(), taskLevelProfile.CostCeiling)
 }
 
 func artifactTaskLevelFloor(request AgentRequest, intakeDecision IntakeDecision) TaskLevel {
