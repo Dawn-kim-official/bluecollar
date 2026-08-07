@@ -408,7 +408,7 @@ func validateCompletionGateForRequestWithExpectedResults(request AgentTurnReques
 	if !result.IsSatisfied {
 		return result
 	}
-	if contractResult := validateOutcomeContractRequirements(request.ToolSet, request.OutcomeContract, observations, result.Attachments); !contractResult.IsSatisfied {
+	if contractResult := validateOutcomeContractRequirements(request.OutcomeContract, observations, result.Attachments); !contractResult.IsSatisfied {
 		return contractResult
 	}
 	return validateExpectedResultDelivery(request, observations, result.Attachments, actionDocument)
@@ -426,7 +426,9 @@ func contractReducedToCallableTools(toolSet *toolcontract.ToolSet, contract Outc
 	if isToolCallable(toolSet, toolcontract.FileDeliverToolName) {
 		return contract
 	}
-	contract.ArtifactRequirement = ""
+	if contract.ArtifactRequirement == ArtifactRequirementRequired {
+		contract.ArtifactRequirement = ArtifactRequirementPreferred
+	}
 	contract.RequiredAttachmentSuffixes = nil
 	return contract
 }
@@ -448,8 +450,8 @@ func isToolCallable(toolSet *toolcontract.ToolSet, toolName string) bool {
 	return toolSet.IsRegistered(strings.TrimSpace(toolName))
 }
 
-func validateOutcomeContractRequirements(toolSet *toolcontract.ToolSet, contract OutcomeContract, observations []turnObservation, attachments []toolcontract.FileAttachment) completionGateResult {
-	contract = contractReducedToCallableTools(toolSet, normalizeOutcomeContract(contract))
+func validateOutcomeContractRequirements(contract OutcomeContract, observations []turnObservation, attachments []toolcontract.FileAttachment) completionGateResult {
+	contract = normalizeOutcomeContract(contract)
 	for _, toolName := range contract.RequiredEvidenceTools {
 		if !hasSuccessfulEvidenceToolObservation(observations, toolName) {
 			return missingContractToolResult([]string{toolName})

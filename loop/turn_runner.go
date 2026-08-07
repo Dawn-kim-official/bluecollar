@@ -227,6 +227,7 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 	if agentTurnRunner.languageModel == nil {
 		return AgentTurnResult{}, errors.New("language model provider is not configured")
 	}
+	request.OutcomeContract = contractReducedToCallableTools(request.ToolSet, request.OutcomeContract)
 
 	turnContext := ctx
 	turnContext = model.ContextWithRequestContext(turnContext, model.RequestContext{
@@ -2027,7 +2028,7 @@ func elapsedTurnCanComplete(request AgentTurnRequest, requirements []toolUseRequ
 	if _, hasFailureDebt := activeFailureDebt(observations); hasFailureDebt {
 		return false
 	}
-	if result := validateOutcomeContractRequirements(request.ToolSet, request.OutcomeContract, observations, attachments); !result.IsSatisfied {
+	if result := validateOutcomeContractRequirements(request.OutcomeContract, observations, attachments); !result.IsSatisfied {
 		return false
 	}
 	if !contractRequiresAttachment(request.OutcomeContract) {
