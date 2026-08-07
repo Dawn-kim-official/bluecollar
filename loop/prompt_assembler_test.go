@@ -336,8 +336,8 @@ func TestPromptAssemblerIncludesWritableWorkspaceContext(t *testing.T) {
 			t.Fatalf("expected workspace context %q, got %s", expected, body)
 		}
 	}
-	if strings.Contains(body, "/workspace/private/people/") {
-		t.Fatalf("workspace context must not expose concrete private paths, got %s", body)
+	if !strings.Contains(body, "/workspace/private/people/person-1") {
+		t.Fatalf("an agent that is not told where it stands spends its turns running pwd to find out, and the directory is its own, reachable in one command: %s", body)
 	}
 }
 

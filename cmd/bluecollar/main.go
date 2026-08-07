@@ -90,7 +90,6 @@ func runOneTurn(options runOptions) (agentcontract.AgentTurnResult, error) {
 		AgentIdentity:        agentcontract.AgentIdentity{Name: options.agentName},
 		WorkspaceRootPath:    workspacePath,
 		WorkspaceDefaultPath: workspacePath,
-		WorkspaceGuidance:    []string{"Your shell starts in " + workspacePath + " and stays there between commands. You do not need to discover where you are."},
 		ToolSet:              turnToolSet(options),
 	}
 
