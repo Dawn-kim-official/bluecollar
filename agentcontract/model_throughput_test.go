@@ -5,87 +5,86 @@ import (
 	"time"
 )
 
-func recordCalls(observer *ThroughputObserver, modelName string, callCount int, fixed time.Duration, tokensPerSecond float64, completionTokens int64) {
-	for callIndex := 0; callIndex < callCount; callIndex++ {
-		tokens := completionTokens + int64(callIndex*10)
-		latency := fixed + time.Duration(float64(tokens)/tokensPerSecond*float64(time.Second))
-		observer.Record(modelName, latency, tokens)
+func recordCalls(observer *ThroughputObserver, modelName string, latencies ...time.Duration) {
+	for _, latency := range latencies {
+		observer.Record(modelName, latency, 200)
 	}
 }
 
-func TestAFastModelEarnsATighterDeadlineThanTheFloor(t *testing.T) {
+func TestWithNothingMeasuredTheFloorStands(t *testing.T) {
 	observer := NewThroughputObserver()
-	recordCalls(observer, "fast/model", 20, 900*time.Millisecond, 340, 200)
 
-	fast := DurationForIterationCount(20, observer.Throughput("fast/model"))
-	floor := DurationForIterationCount(20, ModelThroughput{})
-
-	if fast >= floor {
-		t.Fatalf("a model measured seventeen times faster than the supported floor should not be held to the floor's clock, got %s against %s", fast, floor)
+	if DurationForIterationCount(20, observer.Throughput("unseen/model")) != DurationForIterationCount(20, ModelThroughput{}) {
+		t.Fatal("a model nobody has called yet gets the deadline the product promises, not a guess")
 	}
 }
 
-func TestAModelNobodyHasMeasuredKeepsTheFloor(t *testing.T) {
+func TestOneCallIsAlreadyBetterThanNoCall(t *testing.T) {
 	observer := NewThroughputObserver()
-	recordCalls(observer, "new/model", throughputSampleMinimum-1, time.Second, 300, 200)
+	recordCalls(observer, "fast/model", time.Second)
 
-	unmeasured := DurationForIterationCount(20, observer.Throughput("new/model"))
+	oneCall := DurationForIterationCount(20, observer.Throughput("fast/model"))
 
-	if unmeasured != DurationForIterationCount(20, ModelThroughput{}) {
-		t.Fatalf("a handful of calls is not a measurement, and guessing from it can only cut a task short: %s", unmeasured)
+	if oneCall >= DurationForIterationCount(20, ModelThroughput{}) {
+		t.Fatalf("one call is thin evidence but it is evidence, and waiting for eight of them leaves the first task on a stranger's clock: %s", oneCall)
 	}
 }
 
-func TestASlowModelIsNeverGivenLessThanTheFloor(t *testing.T) {
+func TestTheEstimateIsTheMedianOfWhateverIsOnHand(t *testing.T) {
 	observer := NewThroughputObserver()
-	recordCalls(observer, "slow/model", 20, 2*time.Second, 5, 200)
+	recordCalls(observer, "model", 1*time.Second, 9*time.Second, 2*time.Second)
 
-	slow := DurationForIterationCount(20, observer.Throughput("slow/model"))
-
-	if slow != DurationForIterationCount(20, ModelThroughput{}) {
-		t.Fatalf("the floor is the deadline the product promises to support, and a slower model does not get to shorten it: %s", slow)
+	if observer.Throughput("model").CostPerCall != 2*time.Second {
+		t.Fatalf("the median of one, nine and two seconds is two, and a mean would let one slow call move the deadline: %s", observer.Throughput("model").CostPerCall)
 	}
 }
 
-func TestTheFitIsNotRedoneWhileTheSettingHoldsStill(t *testing.T) {
+func TestAnOutlierMattersLessAsEvidenceAccumulates(t *testing.T) {
 	observer := NewThroughputObserver()
-	recordCalls(observer, "steady/model", 20, 900*time.Millisecond, 340, 200)
+	recordCalls(observer, "model", time.Second)
+	afterOne := observer.Throughput("model").CostPerCall
+	for range 10 {
+		recordCalls(observer, "model", time.Second)
+	}
+	recordCalls(observer, "model", 60*time.Second)
+	afterMany := observer.Throughput("model").CostPerCall
 
-	firstFit := observer.Throughput("steady/model")
-	observer.Record("steady/model", 30*time.Second, 100)
-	secondFit := observer.Throughput("steady/model")
-
-	if secondFit != firstFit {
-		t.Fatal("one more call is not a new setting, and refitting on every call spends work to chase noise")
+	if afterMany != afterOne {
+		t.Fatalf("one wild call among twelve should not move a median, got %s against %s", afterMany, afterOne)
 	}
 }
 
-func TestChangingTheModelChangesTheAnswer(t *testing.T) {
+func TestTheWindowStopsGrowing(t *testing.T) {
 	observer := NewThroughputObserver()
-	recordCalls(observer, "fast/model", 20, 900*time.Millisecond, 340, 200)
-	recordCalls(observer, "slow/model", 20, 2*time.Second, 30, 200)
+	for range throughputSampleCeiling + 50 {
+		recordCalls(observer, "model", time.Second)
+	}
 
-	if observer.ThroughputOfModelInUse().OutputTokensPerSecond >= 100 {
-		t.Fatal("the deadline follows the model actually answering, and after a switch that is the new one")
+	if observer.Throughput("model").SampleCount != throughputSampleCeiling {
+		t.Fatalf("a model measured forever should answer for how it behaves now, got %d samples", observer.Throughput("model").SampleCount)
 	}
 }
 
-func TestAModelBelowTheFloorIsNamedRatherThanAccommodated(t *testing.T) {
+func TestASlowModelStillOnlyGetsTheFloor(t *testing.T) {
 	observer := NewThroughputObserver()
-	recordCalls(observer, "too-slow/model", 20, 2*time.Second, 5, 200)
+	recordCalls(observer, "slow/model", 60*time.Second, 60*time.Second, 60*time.Second)
 
-	throughput := observer.Throughput("too-slow/model")
+	throughput := observer.Throughput("slow/model")
 
 	if throughput.MeetsSupportedFloor() {
-		t.Fatalf("five tokens a second is slower than a person reads, and a deployment there should be told to stop running the model locally rather than handed a longer clock: %+v", throughput)
+		t.Fatal("a minute a call is far below the floor and should be named as such")
 	}
 	if DurationForIterationCount(20, throughput) != DurationForIterationCount(20, ModelThroughput{}) {
-		t.Fatal("and it still does not get to move the deadline")
+		t.Fatal("and naming it does not earn it a longer clock")
 	}
 }
 
-func TestAnUnmeasuredModelIsNotAccusedOfBeingSlow(t *testing.T) {
-	if !(ModelThroughput{}).MeetsSupportedFloor() {
-		t.Fatal("having no measurement is not the same as measuring badly")
+func TestTheDeadlineFollowsTheModelInUse(t *testing.T) {
+	observer := NewThroughputObserver()
+	recordCalls(observer, "fast/model", time.Second, time.Second, time.Second)
+	recordCalls(observer, "slower/model", 5*time.Second, 5*time.Second, 5*time.Second)
+
+	if observer.ThroughputOfModelInUse().CostPerCall != 5*time.Second {
+		t.Fatal("after a switch the deadline belongs to the model now answering")
 	}
 }

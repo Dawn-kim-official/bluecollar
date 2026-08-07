@@ -1,61 +1,43 @@
 package agentcontract
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
 
 type ModelThroughput struct {
-	CostPerCall           time.Duration
-	OutputTokensPerSecond float64
-	fittedAtSampleCount   int
+	CostPerCall time.Duration
+	SampleCount int
 }
 
-func (throughput ModelThroughput) costOfOneCall() time.Duration {
-	generating := time.Duration(float64(measuredOutputTokensPerModelCall) / throughput.OutputTokensPerSecond * float64(time.Second))
-	return throughput.CostPerCall + generating
-}
-
-func supportedFloorThroughput() ModelThroughput {
-	return ModelThroughput{CostPerCall: localCostPerModelCall, OutputTokensPerSecond: supportedFloorOutputTokensPerSecond}
+func supportedFloorCostPerCall() time.Duration {
+	generating := time.Duration(float64(measuredOutputTokensPerModelCall) / supportedFloorOutputTokensPerSecond * float64(time.Second))
+	return localCostPerModelCall + generating
 }
 
 func (throughput ModelThroughput) MeetsSupportedFloor() bool {
-	return throughput.OutputTokensPerSecond <= 0 || throughput.OutputTokensPerSecond >= supportedFloorOutputTokensPerSecond
+	return throughput.CostPerCall <= 0 || throughput.CostPerCall <= supportedFloorCostPerCall()
 }
 
 func DurationForIterationCount(iterationCount int, throughput ModelThroughput) time.Duration {
-	floor := time.Duration(iterationCount) * supportedFloorThroughput().costOfOneCall() * durationMargin
-	if throughput.OutputTokensPerSecond <= 0 {
+	floor := time.Duration(iterationCount) * supportedFloorCostPerCall() * durationMargin
+	if throughput.CostPerCall <= 0 {
 		return floor
 	}
-	observed := time.Duration(iterationCount) * throughput.costOfOneCall() * durationMargin
-	return min(observed, floor)
-}
-
-type modelCallSample struct {
-	latency          time.Duration
-	completionTokens int64
+	return min(time.Duration(iterationCount)*throughput.CostPerCall*durationMargin, floor)
 }
 
 type ThroughputObserver struct {
 	mutex           sync.Mutex
-	samplesByModel  map[string][]modelCallSample
-	fittedByModel   map[string]ModelThroughput
+	latencyByModel  map[string][]time.Duration
 	lastRecordedFor string
 }
 
-const (
-	throughputSampleCeiling  = 200
-	throughputSampleMinimum  = 8
-	throughputRefitThreshold = 2
-)
+const throughputSampleCeiling = 200
 
 func NewThroughputObserver() *ThroughputObserver {
-	return &ThroughputObserver{
-		samplesByModel: map[string][]modelCallSample{},
-		fittedByModel:  map[string]ModelThroughput{},
-	}
+	return &ThroughputObserver{latencyByModel: map[string][]time.Duration{}}
 }
 
 func (observer *ThroughputObserver) Record(modelName string, latency time.Duration, completionTokens int64) {
@@ -64,23 +46,12 @@ func (observer *ThroughputObserver) Record(modelName string, latency time.Durati
 	}
 	observer.mutex.Lock()
 	defer observer.mutex.Unlock()
-	samples := append(observer.samplesByModel[modelName], modelCallSample{latency: latency, completionTokens: completionTokens})
-	if len(samples) > throughputSampleCeiling {
-		samples = samples[len(samples)-throughputSampleCeiling:]
+	latencies := append(observer.latencyByModel[modelName], latency)
+	if len(latencies) > throughputSampleCeiling {
+		latencies = latencies[len(latencies)-throughputSampleCeiling:]
 	}
-	observer.samplesByModel[modelName] = samples
+	observer.latencyByModel[modelName] = latencies
 	observer.lastRecordedFor = modelName
-	if observer.shouldRefit(modelName, len(samples)) {
-		delete(observer.fittedByModel, modelName)
-	}
-}
-
-func (observer *ThroughputObserver) shouldRefit(modelName string, sampleCount int) bool {
-	fitted, wasFitted := observer.fittedByModel[modelName]
-	if !wasFitted {
-		return false
-	}
-	return sampleCount >= fitted.fittedAtSampleCount*throughputRefitThreshold
 }
 
 func (observer *ThroughputObserver) ThroughputOfModelInUse() ModelThroughput {
@@ -99,41 +70,19 @@ func (observer *ThroughputObserver) Throughput(modelName string) ModelThroughput
 	}
 	observer.mutex.Lock()
 	defer observer.mutex.Unlock()
-	if fitted, wasFitted := observer.fittedByModel[modelName]; wasFitted {
-		return fitted
-	}
-	samples := observer.samplesByModel[modelName]
-	if len(samples) < throughputSampleMinimum {
+	latencies := observer.latencyByModel[modelName]
+	if len(latencies) == 0 {
 		return ModelThroughput{}
 	}
-	fitted := fitModelThroughput(samples)
-	observer.fittedByModel[modelName] = fitted
-	return fitted
+	return ModelThroughput{CostPerCall: medianDuration(latencies), SampleCount: len(latencies)}
 }
 
-func fitModelThroughput(samples []modelCallSample) ModelThroughput {
-	callCount := float64(len(samples))
-	var tokenSum, latencySum, tokenLatencySum, tokenSquareSum float64
-	for _, sample := range samples {
-		tokens := float64(sample.completionTokens)
-		seconds := sample.latency.Seconds()
-		tokenSum += tokens
-		latencySum += seconds
-		tokenLatencySum += tokens * seconds
-		tokenSquareSum += tokens * tokens
+func medianDuration(values []time.Duration) time.Duration {
+	ordered := append([]time.Duration{}, values...)
+	sort.Slice(ordered, func(left int, right int) bool { return ordered[left] < ordered[right] })
+	middle := len(ordered) / 2
+	if len(ordered)%2 == 1 {
+		return ordered[middle]
 	}
-	denominator := callCount*tokenSquareSum - tokenSum*tokenSum
-	if denominator == 0 {
-		return ModelThroughput{}
-	}
-	secondsPerToken := (callCount*tokenLatencySum - tokenSum*latencySum) / denominator
-	fixedSeconds := (latencySum - secondsPerToken*tokenSum) / callCount
-	if secondsPerToken <= 0 || fixedSeconds < 0 {
-		return ModelThroughput{}
-	}
-	return ModelThroughput{
-		CostPerCall:           time.Duration(fixedSeconds * float64(time.Second)),
-		OutputTokensPerSecond: 1 / secondsPerToken,
-		fittedAtSampleCount:   len(samples),
-	}
+	return (ordered[middle-1] + ordered[middle]) / 2
 }

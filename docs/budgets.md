@@ -122,26 +122,39 @@ is actually answering.
 
 ## The deadline follows the model in use
 
-Every `llm.call` the ledger records also goes to a throughput observer, which
-fits the same two constants over that model's recent calls. When a task asks
-for its deadline, it gets one sized for the model answering it rather than for
-the slowest model the product supports.
+Every `llm.call` the ledger records also passes its latency to a throughput
+observer, and a task's deadline is that model's median call multiplied by the
+work its tier allows.
 
-Three rules keep that from cutting anything short:
+The estimate sharpens as evidence arrives, with no threshold to cross:
 
-- Under eight calls for a model, there is no fit and the floor stands. A
-  handful of calls is not a measurement, and guessing from it can only shorten
-  a deadline.
-- A fitted deadline is used only when it is shorter than the floor's. A model
-  measuring slower than the floor does not get to shorten anything; the floor
-  is what the product promised.
-- The fit is cached per model and redone only when that model's sample count
-  doubles. One more call is not a new setting. Switching models misses the
-  cache by itself, because the model name is the key.
+| calls seen | the estimate |
+|---|---|
+| none | the floor |
+| one | that call |
+| three | the median of three |
+| ten | the median of ten |
+| two hundred and more | the median of the last two hundred |
 
-Nothing is queried to do this. The samples are the values already being
-written to the ledger, kept as they pass, and the fit is arithmetic over at
-most two hundred of them.
+It is one rule — the median of what is on hand, up to two hundred — and the
+table is what that rule looks like as it fills. Nothing waits for a quorum,
+so the first task on a new model is already on that model's clock rather than
+a stranger's, and a single wild call cannot move a median once there are a few
+around it. The window stops at two hundred so a model that has been running
+for months still answers for how it behaves now.
+
+A median call is what the budget needs, so it is what is kept. Separating the
+fixed cost from the per-token rate says more about a model, and it is how the
+numbers above were understood, but a deadline is iterations times what an
+iteration costs, and that is measured directly.
+
+The estimate can only shorten a deadline. A model measuring slower than the
+floor is reported as below it — `MeetsSupportedFloor` — and still gets the
+floor's deadline, because the floor is what the product promised and hardware
+that cannot do the work does not become able to with a longer clock.
+
+Nothing is queried. The samples are the values already being written to the
+ledger, kept as they pass.
 
 ## Who decides what
 
