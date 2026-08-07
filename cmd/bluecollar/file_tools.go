@@ -72,14 +72,30 @@ var fileToolOutputSchema = json.RawMessage(`{
 	}
 }`)
 
+var fileReadOutputSchema = json.RawMessage(`{
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["path", "content", "startLine", "endLine", "totalLines", "totalLinesKnown", "sizeBytes", "isTruncated"],
+	"properties": {
+		"path": {"type": "string"},
+		"content": {"type": "string"},
+		"startLine": {"type": "integer"},
+		"endLine": {"type": "integer"},
+		"totalLines": {"type": "integer"},
+		"totalLinesKnown": {"type": "boolean"},
+		"sizeBytes": {"type": "integer"},
+		"isTruncated": {"type": "boolean"}
+	}
+}`)
+
 func registerFileTools(toolSet *toolcontract.ToolSet, runningShell shell) {
 	toolcontract.RegisterToolFunction(toolSet, toolcontract.ToolFunction[fileReadInput, toolcontract.ToolResult]{
 		Definition: toolcontract.ToolDefinition{
 			ID:              "bluecollar/file_read",
 			Name:            toolcontract.FileReadToolName,
 			SideEffectClass: toolcontract.ToolSideEffectRead,
-			OutputSchema:    fileToolOutputSchema,
-			ResultContract:  &toolcontract.ToolResultContract{Schema: fileToolOutputSchema},
+			OutputSchema:    fileReadOutputSchema,
+			ResultContract:  &toolcontract.ToolResultContract{Schema: fileReadOutputSchema},
 			Description:     "Read a file and get back its exact contents.",
 			Visibility:      toolcontract.ToolVisibilityModel,
 			InputSchema:     fileReadInputSchema,
@@ -91,7 +107,8 @@ func registerFileTools(toolSet *toolcontract.ToolSet, runningShell shell) {
 				return toolcontract.ToolFailureResult(toolcontract.FailureNotFound, toolcontract.FailureCodes.NotFound,
 					toolcontract.FileReadToolName, errorValue.Error()), nil
 			}
-			return toolcontract.ToolSuccessData(content, mustMarshalFileOutput(input.Path, content)), nil
+			document := fileReadDocument(input.Path, content)
+			return toolcontract.ToolSuccessData(string(document), document), nil
 		},
 	})
 
@@ -160,6 +177,35 @@ func fileChangeResult(path string, summary string) toolcontract.ToolResult {
 	result := toolcontract.ToolSuccessData(summary, mustMarshalFileOutput(path, summary))
 	result.Effects = []toolcontract.ResourceEffect{{ObjectType: "file", Effect: "changed", Path: path}}
 	return result
+}
+
+func countLines(content string) int {
+	if content == "" {
+		return 0
+	}
+	lineCount := strings.Count(content, "\n")
+	if !strings.HasSuffix(content, "\n") {
+		lineCount++
+	}
+	return lineCount
+}
+
+func fileReadDocument(path string, content string) json.RawMessage {
+	lineCount := countLines(content)
+	document, errorValue := json.Marshal(map[string]any{
+		"path":            path,
+		"content":         content,
+		"startLine":       1,
+		"endLine":         lineCount,
+		"totalLines":      lineCount,
+		"totalLinesKnown": true,
+		"sizeBytes":       len(content),
+		"isTruncated":     false,
+	})
+	if errorValue != nil {
+		return json.RawMessage(`{}`)
+	}
+	return document
 }
 
 func mustMarshalFileOutput(path string, content string) json.RawMessage {

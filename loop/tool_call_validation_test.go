@@ -857,3 +857,19 @@ func TestAnOrdinaryToolFailureStaysAvailable(t *testing.T) {
 		t.Fatal("most failures are answered by a different input, and refusing the tool after one of them would end the task at its first mistake")
 	}
 }
+
+func TestASecondReadOfTheSameFileIsAnsweredFromWhatWasAlreadyRead(t *testing.T) {
+	firstRead := turnObservation{
+		ObservationID: "obs-001",
+		Tool:          toolcontract.FileReadToolName,
+		Output: toolcontract.ToolOutput{Content: `{"path":"phone_number.py","content":"import re\n","startLine":1,"endLine":1,` +
+			`"totalLines":1,"totalLinesKnown":true,"sizeBytes":10,"isTruncated":false}`},
+	}
+	action := turnActionDocument{ToolName: toolcontract.FileReadToolName, ToolInput: json.RawMessage(`{"path":"phone_number.py"}`)}
+
+	_, isRepeated := repeatedFileReadObservation([]turnObservation{firstRead}, action, "obs-002")
+
+	if !isRepeated {
+		t.Fatal("one aider-polyglot task read the same unchanged file 204 times with no cache hit, because the read reported no range for this guard to compare")
+	}
+}
