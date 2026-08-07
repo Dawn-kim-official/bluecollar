@@ -69,7 +69,7 @@ func validateDescriptorToolInput(toolSet *toolcontract.ToolSet, toolName string,
 	return errorValue
 }
 
-func (agentTurnRunner *AgentTurnRunner) rejectRepeatedToolCall(taskRunID string, stepID string, state *agentTaskState, actionDocument turnActionDocument, successfulToolCalls map[string]turnObservation, canFinalizeDuplicateDeterministically bool, stopForNoProgress func(string) (AgentTurnResult, bool)) toolCallActionOutcome {
+func (agentTurnRunner *AgentTurnRunner) rejectRepeatedToolCall(taskRunID string, stepID string, state *agentTaskState, actionDocument turnActionDocument, successfulToolCalls map[string]turnObservation, stopForNoProgress func(string) (AgentTurnResult, bool)) toolCallActionOutcome {
 	if observation, isRepeatedRead := repeatedFileReadObservation(state.Observations, actionDocument, nextObservationIDForObservations(state.Observations)); isRepeatedRead {
 		state.Observations = append(state.Observations, observation)
 		agentTurnRunner.appendEvent(taskRunID, "agent.file_read_cache_hit", marshalEventBody(observation))
@@ -102,9 +102,6 @@ func (agentTurnRunner *AgentTurnRunner) rejectRepeatedToolCall(taskRunID string,
 		state.Observations = append(state.Observations, observation)
 		agentTurnRunner.appendEvent(taskRunID, "agent.duplicate_tool_call_rejected", marshalEventBody(observation))
 		agentTurnRunner.saveStep(taskRunID, stepID, taskstate.TaskStatusCompleted, "duplicate_tool_call "+actionDocument.ToolName, observation.ContentText())
-		if canFinalizeDuplicateDeterministically {
-			state.ShouldRestrictNextActionToTerminal = true
-		}
 		result, shouldStop := stopForNoProgress(stepID)
 		return noProgressToolCallActionOutcome(result, shouldStop)
 	}

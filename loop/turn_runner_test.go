@@ -468,7 +468,7 @@ func TestAgentTurnRunnerDoesNotSendCheckpointForRejectedToolCall(t *testing.T) {
 	}
 }
 
-func TestDuplicateSuccessfulToolCallNarrowsNextActionSchemaToTerminalActions(t *testing.T) {
+func TestADuplicateRejectionLeavesTheToolsInTheAgentsHands(t *testing.T) {
 	languageModel := &sequenceLanguageModel{contents: []string{
 		directToolAction("continue", "일정을 갱신합니다.", "calendar_update", `{"eventID":"evt-1","title":"Standup"}`),
 		directToolAction("continue", "다시 갱신합니다.", "calendar_update", `{"eventID":"evt-1","title":"Standup"}`),
@@ -496,9 +496,6 @@ func TestDuplicateSuccessfulToolCallNarrowsNextActionSchemaToTerminalActions(t *
 	if errorValue != nil {
 		t.Fatalf("expected turn to succeed: %v", errorValue)
 	}
-	if result.FinishMessage != "완료했습니다." {
-		t.Fatalf("expected the cited follow-up finish to complete the task, got %+v", result)
-	}
 	if !taskEventsContain(services.taskEventService.ListTaskEvent(result.TaskRun.TaskRunID), "agent.duplicate_tool_call_rejected", "calendar_update") {
 		t.Fatal("expected duplicate rejection event")
 	}
@@ -509,23 +506,8 @@ func TestDuplicateSuccessfulToolCallNarrowsNextActionSchemaToTerminalActions(t *
 			actionRequests = append(actionRequests, request)
 		}
 	}
-	if len(actionRequests) != 3 {
-		t.Fatalf("expected three normal action-loop requests, got %d: %v", len(actionRequests), structuredRequestNames(languageModel.requests))
-	}
-	narrowedSchema := actionRequests[2].StructuredOutputSchema.Document
-	if actionSchemaHasVariant(t, narrowedSchema, "continue") {
-		t.Fatalf("expected the post-duplicate-rejection schema to drop continue/tool variants, got %s", narrowedSchema)
-	}
-	if !actionSchemaHasVariant(t, narrowedSchema, "finish") {
-		t.Fatalf("expected the post-duplicate-rejection schema to still offer finish, got %s", narrowedSchema)
-	}
-	if !actionSchemaHasVariant(t, narrowedSchema, "fail") {
-		t.Fatalf("expected the post-duplicate-rejection schema to still offer fail, got %s", narrowedSchema)
-	}
-
-	firstSchema := actionRequests[0].StructuredOutputSchema.Document
-	if !actionSchemaHasVariant(t, firstSchema, "continue") {
-		t.Fatalf("expected the initial schema to expose the tool palette, got %s", firstSchema)
+	if !actionSchemaHasVariant(t, actionRequests[len(actionRequests)-1].StructuredOutputSchema.Document, "continue") {
+		t.Fatal("repeating one call is a reason to refuse that call, not to take the tools away: fix-git found the commit it was sent for and then reported it could not merge, because the schema after a duplicate held only finish and fail")
 	}
 }
 

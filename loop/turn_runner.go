@@ -575,17 +575,15 @@ func (agentTurnRunner *AgentTurnRunner) handleToolCallAction(ctx context.Context
 	if outcome := agentTurnRunner.rejectMalformedToolCall(taskRunID, stepID, request, state, actionDocument, stopForNoProgress); outcome.WasHandled {
 		return outcome
 	}
-	canFinalizeDuplicateDeterministically := false
 	if duplicateObservation, isDuplicate := repeatedSuccessfulCompletionCandidate(state, actionDocument, successfulToolCalls); isDuplicate {
 		finalizationRequirements, canFinalize := duplicateSuccessFinalizationRequirements(request.ToolSet, requirements, state.Observations, actionDocument)
-		canFinalizeDuplicateDeterministically = canFinalize
 		if canFinalize {
 			if result, isFinalized := agentTurnRunner.finalizeSatisfiedTurn(ctx, taskRunID, request, finalizationRequirements, state.Observations, state.QualityCriteria, state.ExecutionState, duplicateObservation.Tool); isFinalized {
 				return toolCallActionOutcome{Result: result, ShouldReturn: true, WasHandled: true}
 			}
 		}
 	}
-	if outcome := agentTurnRunner.rejectRepeatedToolCall(taskRunID, stepID, state, actionDocument, successfulToolCalls, canFinalizeDuplicateDeterministically, stopForNoProgress); outcome.WasHandled {
+	if outcome := agentTurnRunner.rejectRepeatedToolCall(taskRunID, stepID, state, actionDocument, successfulToolCalls, stopForNoProgress); outcome.WasHandled {
 		return outcome
 	}
 	recoveryStep, outcome := agentTurnRunner.prepareRecoveryAttempt(ctx, taskRunID, stepID, request, state, actionDocument, stopForNoProgress)
