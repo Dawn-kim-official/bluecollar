@@ -74,7 +74,7 @@ func latestPlanUpdate(observations []turnObservation) (planUpdateDocument, bool)
 
 func (agentTurnRunner *AgentTurnRunner) widenBudgetForPlannedLevel(taskRunID string, state *agentTaskState, plannedLevel TaskLevel) {
 	normalizedLevel := NormalizeTaskLevel(string(plannedLevel))
-	if normalizedLevel == "" || LargerTaskLevel(state.Request.TaskLevel, normalizedLevel) != normalizedLevel {
+	if normalizedLevel == "" || taskLevelRank(normalizedLevel) <= taskLevelRank(state.Request.TaskLevel) {
 		return
 	}
 	plannedProfile := TaskLevelProfileForLevel(normalizedLevel)

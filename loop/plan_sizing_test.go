@@ -73,3 +73,14 @@ func TestThePlannedLevelIsReadBackFromThePlanObservation(t *testing.T) {
 		t.Fatalf("the size the agent wrote on its plan has to survive the round trip, got %+v", document)
 	}
 }
+
+func TestRestatingTheSameLevelChangesNothing(t *testing.T) {
+	runner, state := runnerWithLevel(TaskLevelMedium)
+	runner.options.MaxElapsedSecond = 836
+
+	runner.widenBudgetForPlannedLevel("task-1", state, TaskLevelMedium)
+
+	if runner.options.MaxElapsedSecond != 836 {
+		t.Fatalf("a plan that repeats its size must not quietly retighten the clock, got %d seconds", runner.options.MaxElapsedSecond)
+	}
+}
