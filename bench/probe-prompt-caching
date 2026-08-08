@@ -5,23 +5,10 @@
 # from it is a property of the endpoint, not something the harness can assume.
 set -euo pipefail
 
-environmentFile="${BENCH_ENV_FILE:-}"
-if [ -z "$environmentFile" ]; then
-  directory="$PWD"
-  while [ "$directory" != "/" ]; do
-    if [ -f "$directory/.env" ]; then environmentFile="$directory/.env"; break; fi
-    directory="$(dirname "$directory")"
-  done
-fi
-if [ -z "$environmentFile" ] || [ ! -f "$environmentFile" ]; then
-  echo "found no environment file above $PWD; set BENCH_ENV_FILE" >&2
-  exit 2
-fi
+# shellcheck source=bench/environment-file
+source "$(dirname "$0")/environment-file"
+loadEnvironmentFile
 
-set -a
-# shellcheck disable=SC1090
-source "$environmentFile"
-set +a
 
 model="${BENCH_MODEL:-openai/gpt-5.6-luna}"
 prefixWordCount="${PROBE_PREFIX_WORDS:-3000}"
