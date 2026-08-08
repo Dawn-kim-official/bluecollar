@@ -83,7 +83,7 @@ runHarness() {
       --agent-import-path "$importPath" \
       --model "$model" \
       --n-concurrent "$concurrency" \
-      "${taskArguments[@]}" \
+      ${taskArguments[@]+"${taskArguments[@]}"} \
       --output-path "$outputRoot/$harnessName"
 }
 
