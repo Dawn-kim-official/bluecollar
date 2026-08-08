@@ -280,6 +280,17 @@ let the agent diagnose itself instead of waiting for someone to read the file.
 Each of these was found by running a row, and each is invisible to a pass
 rate.
 
+- `terminal_run` sat in the sanitized-presenter list, which reduced a
+  successful run to `exitCode` and `timedOut`. That list exists for the
+  companion privacy boundary — browser snapshots, screenshots, file picks,
+  whose raw output carries cookies and local paths — and a command the agent
+  ran itself is not on it. Every terminal call this loop had ever made came
+  back to the model as `exitCode=0`, and a second path had the summariser
+  reading `stdout` from a result this repo's tool reports under `output`.
+  Both had to go. What it cost is at the top of this file: six of eight
+  instead of four, median seven turns instead of fourteen, median 46 seconds
+  instead of 83. The agent was never looping. It was searching for something
+  it had already been handed and could not see.
 - The action schema was a root-level `oneOf`, which gemini answers with `{}`
   and no error. Every run died on an empty action. The native tool path, one
   function per tool, has no root oneOf; the reference provider now takes it.
