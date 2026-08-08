@@ -56,6 +56,22 @@ uvx --from terminal-bench --with 'litellm==1.77.0' tb run \
   --task-id hello-world
 ```
 
+`run-comparison` raises both of Terminal-Bench's timeouts well above the task
+definitions — `--global-agent-timeout-sec 3600` and `--global-test-timeout-sec
+600`, from `BENCH_AGENT_TIMEOUT` and `BENCH_TEST_TIMEOUT`. Tasks ship with 600
+and 60. The reason is that this row is asking whether the harness does the work,
+and a task killed at its own clock answers a different question; the earlier
+`test_timeout` rows came from a loaded machine rather than from anything either
+agent did. Both harnesses get the same numbers, so the comparison holds — but a
+pass rate from here is not a terminal-bench-core score and must not be reported
+as one.
+
+Raising them does not make the underlying behaviour correct. A budget derived
+from measured iteration cost reached 979 seconds on `count-dataset-tokens`
+against the task's own 600, so the loop planned to work longer than it was
+allowed and was killed rather than finishing and reporting. The environment
+knows that limit and the loop is never told it.
+
 The two agents reach the model from different sides, and getting this wrong
 silently measures a harness that never spoke to a model. bluecollar runs on the
 host and reaches only the container's shell, so it uses the endpoint directly.

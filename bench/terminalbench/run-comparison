@@ -11,6 +11,8 @@ endpoint="${BENCH_ENDPOINT:-https://openrouter.ai/api/v1}"
 outputRoot="${BENCH_OUTPUT:-/tmp/bench-comparison}"
 concurrency="${BENCH_CONCURRENCY:-4}"
 harnessFilter="${BENCH_HARNESS:-}"
+agentTimeoutSecond="${BENCH_AGENT_TIMEOUT:-3600}"
+testTimeoutSecond="${BENCH_TEST_TIMEOUT:-600}"
 taskArguments=()
 for taskID in "$@"; do taskArguments+=(--task-id "$taskID"); done
 
@@ -60,6 +62,8 @@ runHarness() {
       --agent-import-path "$importPath" \
       --model "$model" \
       --n-concurrent "$concurrency" \
+      --global-agent-timeout-sec "$agentTimeoutSecond" \
+      --global-test-timeout-sec "$testTimeoutSecond" \
       ${taskArguments[@]+"${taskArguments[@]}"} \
       --output-path "$outputRoot/$harnessName"
 }
