@@ -3,6 +3,7 @@ package loop
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
 )
@@ -82,5 +83,19 @@ func TestRestatingTheSameLevelChangesNothing(t *testing.T) {
 
 	if runner.options.MaxElapsedSecond != 836 {
 		t.Fatalf("a plan that repeats its size must not quietly retighten the clock, got %d seconds", runner.options.MaxElapsedSecond)
+	}
+}
+
+func TestTheClockFollowsWhatIterationsActuallyCost(t *testing.T) {
+	services := newTurnRunnerTestServices(nil, TurnOptions{TaskLevel: TaskLevelMedium})
+	runner := services.runner
+	runner.noteModelInUse("a/model")
+	fallbackClock := runner.options.MaxElapsedSecond
+
+	runner.recordIterationCost(time.Now().Add(-40 * time.Second))
+	runner.refreshElapsedBudget(TaskLevelMedium)
+
+	if runner.options.MaxElapsedSecond <= fallbackClock {
+		t.Fatalf("a task whose iterations cost 40 seconds each cannot be held to a clock drawn for cheap ones, got %d against %d", runner.options.MaxElapsedSecond, fallbackClock)
 	}
 }

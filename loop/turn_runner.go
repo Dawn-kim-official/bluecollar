@@ -235,6 +235,14 @@ func (agentTurnRunner *AgentTurnRunner) recordIterationCost(startedAt time.Time)
 	agentTurnRunner.iterationCostObserver.Record(agentTurnRunner.modelInUse, time.Since(startedAt))
 }
 
+func (agentTurnRunner *AgentTurnRunner) refreshElapsedBudget(taskLevel TaskLevel) {
+	measuredCost := agentTurnRunner.iterationCostObserver.CostOfModelInUse()
+	if measuredCost.CostPerIteration <= 0 {
+		return
+	}
+	agentTurnRunner.options.MaxElapsedSecond = int(elapsedBudgetForProfile(TaskLevelProfileForLevel(taskLevel), measuredCost).Seconds())
+}
+
 func normalizeTurnOptions(options TurnOptions) TurnOptions {
 	taskLevelProfile := TaskLevelProfileForLevel(options.TaskLevel)
 	if options.TaskLevel == "" {
@@ -382,6 +390,7 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 	for iteration := 1; ; iteration++ {
 		if iteration > 1 {
 			agentTurnRunner.recordIterationCost(iterationStartedAt)
+			agentTurnRunner.refreshElapsedBudget(state.Request.TaskLevel)
 			iterationStartedAt = time.Now()
 		}
 		if cancelledResult, isCancelled := agentTurnRunner.cancelledTaskResult(taskRun.TaskRunID, state.Attachments); isCancelled {
