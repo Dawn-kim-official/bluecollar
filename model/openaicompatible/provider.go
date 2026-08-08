@@ -95,6 +95,26 @@ func chatCompletionMessages(messages []model.ChatCompletionMessage) []map[string
 	return chat
 }
 
+type reportedUsage struct {
+	PromptTokens        int64   `json:"prompt_tokens"`
+	CompletionTokens    int64   `json:"completion_tokens"`
+	TotalTokens         int64   `json:"total_tokens"`
+	Cost                float64 `json:"cost"`
+	PromptTokensDetails struct {
+		CachedTokens int64 `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
+func (usage reportedUsage) measured() model.Usage {
+	return model.Usage{
+		PromptTokens:       usage.PromptTokens,
+		CompletionTokens:   usage.CompletionTokens,
+		TotalTokens:        usage.TotalTokens,
+		CostUSD:            usage.Cost,
+		CachedPromptTokens: usage.PromptTokensDetails.CachedTokens,
+	}
+}
+
 func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatCompletionResponse, error) {
 	var decoded struct {
 		Choices []struct {
@@ -105,12 +125,7 @@ func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatComp
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int64   `json:"prompt_tokens"`
-			CompletionTokens int64   `json:"completion_tokens"`
-			TotalTokens      int64   `json:"total_tokens"`
-			Cost             float64 `json:"cost"`
-		} `json:"usage"`
+		Usage reportedUsage `json:"usage"`
 	}
 	if errorValue := json.Unmarshal(responseBody, &decoded); errorValue != nil {
 		return model.ChatCompletionResponse{}, errorValue
@@ -128,12 +143,7 @@ func decodeChatCompletion(responseBody []byte, modelName string) (model.ChatComp
 			Content:   decoded.Choices[0].Message.Content,
 			ToolCalls: chatCompletionToolCalls(decoded.Choices[0].Message.ToolCalls),
 		},
-		Usage: model.Usage{
-			PromptTokens:     decoded.Usage.PromptTokens,
-			CompletionTokens: decoded.Usage.CompletionTokens,
-			TotalTokens:      decoded.Usage.TotalTokens,
-			CostUSD:          decoded.Usage.Cost,
-		},
+		Usage: decoded.Usage.measured(),
 	}, nil
 }
 
@@ -226,12 +236,7 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int64   `json:"prompt_tokens"`
-			CompletionTokens int64   `json:"completion_tokens"`
-			TotalTokens      int64   `json:"total_tokens"`
-			Cost             float64 `json:"cost"`
-		} `json:"usage"`
+		Usage reportedUsage `json:"usage"`
 	}
 	if errorValue := json.Unmarshal(responseBody, &decoded); errorValue != nil {
 		return model.StructuredResponse{}, errorValue
@@ -249,12 +254,7 @@ func decodeCompletion(responseBody []byte, modelName string) (model.StructuredRe
 		ModelName:    modelName,
 		Content:      arguments,
 		FinishReason: decoded.Choices[0].FinishReason,
-		Usage: model.Usage{
-			PromptTokens:     decoded.Usage.PromptTokens,
-			CompletionTokens: decoded.Usage.CompletionTokens,
-			TotalTokens:      decoded.Usage.TotalTokens,
-			CostUSD:          decoded.Usage.Cost,
-		},
+		Usage:        decoded.Usage.measured(),
 	}, nil
 }
 

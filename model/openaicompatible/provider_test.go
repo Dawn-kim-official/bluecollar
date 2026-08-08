@@ -49,3 +49,16 @@ func TestTheCostTheEndpointChargedIsRecorded(t *testing.T) {
 		t.Fatalf("a ceiling meant to bound spend cannot be written in money while every run reports zero cost, got %v", response.Usage.CostUSD)
 	}
 }
+
+func TestThePromptTokensTheEndpointServedFromCacheAreRecorded(t *testing.T) {
+	responseBody := []byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"c1","type":"function","function":{"name":"terminal_run","arguments":"{}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10000,"completion_tokens":2,"total_tokens":10002,"prompt_tokens_details":{"cached_tokens":9000}}}`)
+
+	response, errorValue := decodeChatCompletion(responseBody, "any/model")
+
+	if errorValue != nil {
+		t.Fatal(errorValue)
+	}
+	if response.Usage.CachedPromptTokens != 9000 {
+		t.Fatalf("a run that reports no cached tokens reads as a run that caches nothing, got %v", response.Usage.CachedPromptTokens)
+	}
+}
