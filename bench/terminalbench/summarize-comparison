@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """Print one comparison row per harness from the runs both just wrote.
 
-Terminal-Bench records the verdict for every harness on the row. Each harness
-writes what it alone can see into its own metrics file, and a column stays
-blank rather than being guessed from the outside. pi's wall clock covers only
-its agent commands: it installs itself into the task container, and charging
-that installation to the harness would compare a setup step against a run.
+Terminal-Bench records the verdict and the agent's own span for every harness
+on the row, and the clock column comes from that span for both — one source,
+one definition. Reading each harness's self-reported duration instead
+compares two different measurements, and on tasks both solve it reversed the
+answer. The columns only one harness can see stay blank rather than being
+guessed from the outside.
 """
 
 import glob
 import json
 import os
 import statistics
+from datetime import datetime
 import sys
 
 
@@ -50,11 +52,15 @@ def formatted(value, digits=0):
     return f"{value:,.{digits}f}"
 
 
-def median_wall_clock_second(metrics):
-    milliseconds = median_of(metrics, "wallClockMs")
-    if milliseconds is None:
+def median_agent_second(verdicts):
+    spans = []
+    for verdict in verdicts:
+        started, ended = verdict.get("agent_started_at"), verdict.get("agent_ended_at")
+        if started and ended:
+            spans.append((datetime.fromisoformat(ended) - datetime.fromisoformat(started)).total_seconds())
+    if not spans:
         return "not reported"
-    return f"{milliseconds / 1000:,.1f}s"
+    return f"{statistics.median(spans):,.1f}s"
 
 
 def harness_row(harness_name, harness_root):
@@ -72,7 +78,7 @@ def harness_row(harness_name, harness_root):
         "reachedEnd": f"{len(reached_end)}/{len(metrics)}" if metrics else "not reported",
         "turns": formatted(median_of(metrics, "turns")),
         "promptTokensPerTurn": formatted(median_of(metrics, "promptTokensPerTurn")),
-        "wallClockSecond": median_wall_clock_second(metrics),
+        "wallClockSecond": median_agent_second(verdicts),
     }
 
 
