@@ -113,8 +113,8 @@ func TestBuildAgentActionChatRequestExposesDirectToolsAndTerminalControls(t *tes
 	if string(chatRequest.ToolChoice) != `"required"` {
 		t.Fatalf("expected required native tool choice, got %s", chatRequest.ToolChoice)
 	}
-	if chatRequest.ParallelToolCalls {
-		t.Fatal("expected parallel native tool calls to be disabled")
+	if !chatRequest.ParallelToolCalls {
+		t.Fatal("expected parallel native tool calls to be enabled")
 	}
 	if chatRequest.GenerationOptions != structuredRequest.GenerationOptions {
 		t.Fatalf("expected native chat generation options to reuse structured request options, got %+v and %+v", chatRequest.GenerationOptions, structuredRequest.GenerationOptions)
@@ -669,6 +669,47 @@ func TestDecideAgentActionNativeChatUsesFirstProviderOrderedCall(t *testing.T) {
 	}
 	if provider.chatCalls != 1 || provider.structuredCalls != 0 {
 		t.Fatalf("expected one native call without retry or structured fallback, got chat=%d structured=%d", provider.chatCalls, provider.structuredCalls)
+	}
+	if len(action.BatchedActions) != 0 {
+		t.Fatalf("expected a terminal call to end the batch, got %+v", action.BatchedActions)
+	}
+}
+
+func TestDecideAgentActionBatchesFollowingToolCalls(t *testing.T) {
+	provider := nativeAgentActionLanguageModel{chatResponse: model.ChatCompletionResponse{
+		FinishReason: "tool_calls",
+		Message: model.ChatCompletionMessage{
+			Role: "assistant",
+			ToolCalls: []model.ChatCompletionToolCall{
+				nativeAgentActionToolCall(toolcontract.TerminalRunToolName, `{"command":"pwd"}`),
+				nativeAgentActionToolCall(toolcontract.TerminalRunToolName, `{"command":"ls"}`),
+			},
+		},
+	}}
+
+	action, errorValue := DecideAgentAction(context.Background(), &provider, nativeAgentActionTestState())
+	if errorValue != nil {
+		t.Fatalf("expected native action: %v", errorValue)
+	}
+	if len(action.BatchedActions) != 1 || string(action.BatchedActions[0].ToolInput) != `{"command":"ls"}` {
+		t.Fatalf("expected the following call to be batched, got %+v", action.BatchedActions)
+	}
+}
+
+func TestBatchedActionsRunWithoutAModelCallUntilOneFails(t *testing.T) {
+	state := &agentTaskState{}
+	rememberBatchedActions(state, turnActionDocument{BatchedActions: []turnActionDocument{
+		{Action: "continue", ToolName: toolcontract.TerminalRunToolName},
+		{Action: "continue", ToolName: toolcontract.TerminalRunToolName},
+	}})
+
+	if _, isBatched := takeBatchedAction(state); !isBatched {
+		t.Fatal("expected the first batched action to run without a model call")
+	}
+	state.Observations = append(state.Observations, newFailureObservation("obs-1", "continue", toolcontract.TerminalRunToolName, "failed", toolcontract.FailurePermissionDenied, toolcontract.FailureCodes.AccessDenied, toolcontract.TerminalRunToolName))
+	rememberBatchedActions(state, turnActionDocument{})
+	if _, isBatched := takeBatchedAction(state); isBatched {
+		t.Fatal("expected a failed observation to drop the rest of the batch")
 	}
 }
 

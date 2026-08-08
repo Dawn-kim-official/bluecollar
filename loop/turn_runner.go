@@ -49,6 +49,31 @@ type turnActionDocument struct {
 	RemainingWork         string                        `json:"remainingWork"`
 	UsedFailureFacts      failureReportFacts            `json:"usedFailureFacts"`
 	ExecutionStateUpdate  ExecutionState                `json:"executionStateUpdate"`
+	BatchedActions        []turnActionDocument          `json:"batchedActions,omitempty"`
+}
+
+func takeBatchedAction(state *agentTaskState) (turnActionDocument, bool) {
+	if len(state.PendingBatchedActions) == 0 {
+		return turnActionDocument{}, false
+	}
+	nextAction := state.PendingBatchedActions[0]
+	state.PendingBatchedActions = state.PendingBatchedActions[1:]
+	return nextAction, true
+}
+
+func rememberBatchedActions(state *agentTaskState, actionDocument turnActionDocument) {
+	if lastObservationFailed(state.Observations) {
+		state.PendingBatchedActions = nil
+		return
+	}
+	state.PendingBatchedActions = append(state.PendingBatchedActions, actionDocument.BatchedActions...)
+}
+
+func lastObservationFailed(observations []turnObservation) bool {
+	if len(observations) == 0 {
+		return false
+	}
+	return observations[len(observations)-1].Failed()
 }
 
 type turnObservation struct {
@@ -391,7 +416,11 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 			"exposure": iterationRequest.ToolExposure,
 		}))
 		allowQualityCriteria := len(state.QualityCriteria) == 0 && outcomeContractNeedsQualityCriteria(iterationRequest.ToolSet, iterationRequest.OutcomeContract)
-		actionDocument, actionError := agentTurnRunner.nextAction(workContext, taskRun.TaskRunID, iterationRequest, toolUseRequirements, state.Observations, state.ExecutionState, state.ContextSummary, allowQualityCriteria)
+		actionDocument, isBatched := takeBatchedAction(&state)
+		var actionError error
+		if !isBatched {
+			actionDocument, actionError = agentTurnRunner.nextAction(workContext, taskRun.TaskRunID, iterationRequest, toolUseRequirements, state.Observations, state.ExecutionState, state.ContextSummary, allowQualityCriteria)
+		}
 		if actionError != nil {
 			agentTurnRunner.saveStep(taskRun.TaskRunID, stepID, taskstate.TaskStatusFailed, "agent turn iteration", actionError.Error())
 			if errors.Is(actionError, context.Canceled) {
@@ -487,6 +516,7 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 				}
 				return outcome.Result, nil
 			}
+			rememberBatchedActions(&state, actionDocument)
 			if outcome.WasHandled {
 				continue
 			}

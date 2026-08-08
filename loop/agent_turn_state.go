@@ -21,6 +21,7 @@ const maximumAgentActionCorrectionCount = 2
 type agentAction = turnActionDocument
 
 type agentTaskState struct {
+	PendingBatchedActions              []turnActionDocument
 	TaskRunID                          string
 	Status                             taskstate.TaskStatus
 	Request                            AgentTurnRequest
@@ -912,7 +913,7 @@ func buildAgentActionChatCompletionRequest(structuredRequest model.StructuredRes
 		Messages:          messages,
 		Tools:             tools,
 		ToolChoice:        json.RawMessage(`"required"`),
-		ParallelToolCalls: false,
+		ParallelToolCalls: true,
 		GenerationOptions: structuredRequest.GenerationOptions,
 	}, true
 }
@@ -1024,7 +1025,27 @@ func parseNativeAgentActionResponse(response model.ChatCompletionResponse, tools
 	if len(response.Message.ToolCalls) == 0 {
 		return turnActionDocument{}, errors.New("native agent action chat expected at least one tool call")
 	}
-	toolCall := response.Message.ToolCalls[0]
+	firstAction, errorValue := nativeAgentActionFromToolCall(response.Message.ToolCalls[0], tools)
+	if errorValue != nil || firstAction.Action != "continue" {
+		return firstAction, errorValue
+	}
+	firstAction.BatchedActions = batchedNativeAgentActions(response.Message.ToolCalls[1:], tools)
+	return firstAction, nil
+}
+
+func batchedNativeAgentActions(toolCalls []model.ChatCompletionToolCall, tools []model.ChatCompletionTool) []turnActionDocument {
+	var actions []turnActionDocument
+	for _, toolCall := range toolCalls {
+		action, errorValue := nativeAgentActionFromToolCall(toolCall, tools)
+		if errorValue != nil || action.Action != "continue" {
+			return actions
+		}
+		actions = append(actions, action)
+	}
+	return actions
+}
+
+func nativeAgentActionFromToolCall(toolCall model.ChatCompletionToolCall, tools []model.ChatCompletionTool) (turnActionDocument, error) {
 	if strings.TrimSpace(toolCall.ID) == "" {
 		return turnActionDocument{}, errors.New("native agent action chat tool call ID is empty")
 	}
