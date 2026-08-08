@@ -54,25 +54,6 @@ func requestSpeaksToPeople(request AgentTurnRequest) bool {
 }
 
 func capabilityDomainPhrase(skills []SkillInstruction) string {
-	friendlyByDomain := map[string]string{
-		"flow":     "tasks",
-		"task":     "tasks",
-		"schedule": "schedules",
-		"platform": "messages",
-		"message":  "messages",
-		"channel":  "messages",
-		"slack":    "messages",
-		"calendar": "calendar",
-		"mail":     "mail",
-		"google":   "Google Workspace",
-		"memory":   "memory",
-		"file":     "files",
-		"artifact": "artifacts",
-		"site":     "websites",
-		"terminal": "the terminal",
-		"browser":  "the browser",
-		"web":      "the web",
-	}
 	seenLabels := map[string]bool{}
 	labels := []string{}
 	for _, skill := range skills {
@@ -84,27 +65,15 @@ func capabilityDomainPhrase(skills []SkillInstruction) string {
 			if domain == "" {
 				continue
 			}
-			label, isKnown := friendlyByDomain[domain]
-			if !isKnown {
-				label = domain
-			}
-			if seenLabels[label] {
+			if seenLabels[domain] {
 				continue
 			}
-			seenLabels[label] = true
-			labels = append(labels, label)
+			seenLabels[domain] = true
+			labels = append(labels, domain)
 		}
 	}
 	sort.Strings(labels)
 	return strings.Join(labels, ", ")
-}
-
-func buildAmbientDutyInstruction(ambientDuty AmbientDutyContext) string {
-	ambientDuty = ambientDuty.Normalized()
-	if !ambientDuty.IsMatch {
-		return ""
-	}
-	return "Ambient duty context: the latest message was not addressed to you, but it matched standing duty " + ambientDuty.Name + ". Perform only that matched duty quietly. Preserve the named assignee, requester, subject, and due date or event time from the message. Before adding anything, call the relevant direct list tool to check whether this conversation already produced a task or event for the same subject and person, and update that existing item instead of creating a duplicate. Never send a text reply, checkpoint, confirmation, or clarification. If required details are insufficient, do not create an item. Finish internally after the duty is complete. Do not perform external sends."
 }
 
 func (agentTurnRunner *AgentTurnRunner) buildToolDescription(toolRegistry *toolcontract.ToolSet) string {
