@@ -31,6 +31,13 @@ func (agentTurnRunner *AgentTurnRunner) recordToolObservation(taskRunID string, 
 		observation.RecoveryAttemptKey = canonicalToolCallKey(actionDocument.ToolName, actionDocument.ToolInput)
 	}
 	observation.RepeatsObservationID = earlierObservationWithIdenticalOutput(state.Observations, observation)
+	if observation.RepeatsObservationID != "" {
+		agentTurnRunner.appendEvent(taskRunID, "agent.identical_output", marshalEventBody(map[string]any{
+			"observationID": observation.ObservationID,
+			"sameOutputAs":  observation.RepeatsObservationID,
+			"toolName":      observation.Tool,
+		}))
+	}
 	state.Observations = append(state.Observations, observation)
 	state.Attachments = appendObservationAttachments(state.Attachments, observation)
 	if observation.Failed() {

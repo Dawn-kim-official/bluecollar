@@ -565,6 +565,9 @@ func summarizeTerminalRun(observation turnObservation) string {
 	if !ok {
 		return ""
 	}
+	if len(tail.StdoutTail) == 0 && len(tail.StderrTail) == 0 {
+		return ""
+	}
 	parts := []string{}
 	if tail.ExitCode != nil {
 		parts = append(parts, fmt.Sprintf("exitCode=%d", *tail.ExitCode))
