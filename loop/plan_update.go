@@ -80,7 +80,7 @@ func (agentTurnRunner *AgentTurnRunner) widenBudgetForPlannedLevel(taskRunID str
 	plannedProfile := TaskLevelProfileForLevel(normalizedLevel)
 	agentTurnRunner.options.MaxIterationCount = plannedProfile.MaxIterationCount
 	agentTurnRunner.options.MaxToolCallCount = plannedProfile.MaxToolCallCount
-	agentTurnRunner.options.MaxElapsedSecond = int(elapsedBudgetForProfile(plannedProfile, agentTurnRunner.throughputObserver.ThroughputOfModelInUse()).Seconds())
+	agentTurnRunner.options.MaxElapsedSecond = int(elapsedBudgetForProfile(plannedProfile, agentTurnRunner.iterationCostObserver.CostOfModelInUse()).Seconds())
 	state.Request.TaskLevel = normalizedLevel
 	agentTurnRunner.appendEvent(taskRunID, "agent.plan.sized", marshalEventBody(map[string]any{
 		"level":             string(normalizedLevel),

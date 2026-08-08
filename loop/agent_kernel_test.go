@@ -622,7 +622,7 @@ func TestSitePrototypeIntakePromotesToXHighLimits(t *testing.T) {
 		},
 	}
 	intakeDecision := promoteArtifactTaskLevel(request, IntakeDecision{
-		TaskLevel:        TaskLevelLow,
+		TaskLevel: TaskLevelLow,
 	})
 
 	turnOptions := agentKernel.turnOptionsForIntakeDecision(intakeDecision)
@@ -655,7 +655,7 @@ func TestAgentKernelSkillDeadlinePersistsOneBlockedTask(t *testing.T) {
 	agentKernel.UseIntakeLanguageModelProvider(languageModel)
 	agentKernel.UseLanguageModelProvider(languageModel)
 	request := kernelTestRequest("고객지원 업무를 정리해줘")
-	workDuration := workDurationWithinTotal(elapsedBudgetForProfile(TaskLevelProfileForLevel(TaskLevelXLow), agentKernel.throughputObserver.ThroughputOfModelInUse()))
+	workDuration := workDurationWithinTotal(elapsedBudgetForProfile(TaskLevelProfileForLevel(TaskLevelXLow), agentKernel.iterationCostObserver.CostOfModelInUse()))
 	request.TurnStartedAt = time.Now().Add(-workDuration + time.Second)
 
 	result, errorValue := agentKernel.RunAgentRequest(context.Background(), routedRequest(t, context.Background(), agentKernel, request))

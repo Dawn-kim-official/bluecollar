@@ -8,8 +8,8 @@ import (
 var _ agentcontract.Harness = (*AgentKernel)(nil)
 
 type (
-	ThroughputObserver                      = agentcontract.ThroughputObserver
-	ModelThroughput                         = agentcontract.ModelThroughput
+	IterationCostObserver                   = agentcontract.IterationCostObserver
+	IterationCost                           = agentcontract.IterationCost
 	AgentIdentity                           = agentcontract.AgentIdentity
 	ActiveGoal                              = agentcontract.ActiveGoal
 	ActiveGoalStatus                        = agentcontract.ActiveGoalStatus
@@ -274,7 +274,7 @@ type (
 
 var (
 	TaskLevelProfileForLevel          = agentcontract.TaskLevelProfileForLevel
-	NewThroughputObserver             = agentcontract.NewThroughputObserver
+	NewIterationCostObserver          = agentcontract.NewIterationCostObserver
 	DurationForIterationCount         = agentcontract.DurationForIterationCount
 	nextTaskLevel                     = agentcontract.NextTaskLevel
 	taskLevelRequiresPlan             = agentcontract.TaskLevelRequiresPlan

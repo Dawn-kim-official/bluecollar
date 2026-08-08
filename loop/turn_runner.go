@@ -17,7 +17,8 @@ import (
 const maximumElapsedClosingDuration = time.Minute
 
 type AgentTurnRunner struct {
-	throughputObserver     *ThroughputObserver
+	iterationCostObserver  *IterationCostObserver
+	modelInUse             string
 	taskRunService         taskstate.TaskRunStore
 	taskStepService        taskstate.TaskStepStore
 	taskArtifactService    taskstate.TaskArtifactStore
@@ -198,7 +199,7 @@ func NewAgentTurnRunnerWithRecoveryModel(taskRunService taskstate.TaskRunStore, 
 	}
 	normalizedOptions := normalizeTurnOptions(options)
 	return &AgentTurnRunner{
-		throughputObserver:     NewThroughputObserver(),
+		iterationCostObserver:  NewIterationCostObserver(),
 		taskRunService:         taskRunService,
 		taskStepService:        taskStepService,
 		taskArtifactService:    taskArtifactService,
@@ -212,8 +213,26 @@ func NewAgentTurnRunnerWithRecoveryModel(taskRunService taskstate.TaskRunStore, 
 func (agentTurnRunner *AgentTurnRunner) llmCallObserverForTaskRun(taskRunID string) llmCallObserver {
 	return func(record llmCallRecord) {
 		agentTurnRunner.appendEvent(taskRunID, "llm.call", marshalEventBody(record))
-		agentTurnRunner.throughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
+		agentTurnRunner.noteModelInUse(record.Model)
 	}
+}
+
+func (agentTurnRunner *AgentTurnRunner) UseIterationCostObserver(observer *IterationCostObserver) {
+	if observer == nil {
+		return
+	}
+	agentTurnRunner.iterationCostObserver = observer
+}
+
+func (agentTurnRunner *AgentTurnRunner) noteModelInUse(modelName string) {
+	if strings.TrimSpace(modelName) == "" {
+		return
+	}
+	agentTurnRunner.modelInUse = modelName
+}
+
+func (agentTurnRunner *AgentTurnRunner) recordIterationCost(startedAt time.Time) {
+	agentTurnRunner.iterationCostObserver.Record(agentTurnRunner.modelInUse, time.Since(startedAt))
 }
 
 func normalizeTurnOptions(options TurnOptions) TurnOptions {
@@ -359,7 +378,12 @@ func (agentTurnRunner *AgentTurnRunner) RunTurn(ctx context.Context, request Age
 		result, isBlocked := agentTurnRunner.blockTurnForStall(workContext, taskRun.TaskRunID, stepID, request, reason, progressEvaluation, recoveryAllowance, state)
 		return result, isBlocked
 	}
+	iterationStartedAt := time.Now()
 	for iteration := 1; ; iteration++ {
+		if iteration > 1 {
+			agentTurnRunner.recordIterationCost(iterationStartedAt)
+			iterationStartedAt = time.Now()
+		}
 		if cancelledResult, isCancelled := agentTurnRunner.cancelledTaskResult(taskRun.TaskRunID, state.Attachments); isCancelled {
 			return cancelledResult, nil
 		}

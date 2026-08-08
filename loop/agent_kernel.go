@@ -13,7 +13,7 @@ import (
 )
 
 type AgentKernel struct {
-	throughputObserver      *ThroughputObserver
+	iterationCostObserver   *IterationCostObserver
 	taskRunService          taskstate.TaskRunStore
 	taskStepService         taskstate.TaskStepStore
 	taskArtifactService     taskstate.TaskArtifactStore
@@ -36,10 +36,10 @@ type AgentKernel struct {
 
 func NewAgentKernel(taskRunService taskstate.TaskRunStore, taskStepService taskstate.TaskStepStore) *AgentKernel {
 	return &AgentKernel{
-		throughputObserver:  NewThroughputObserver(),
-		taskRunService:      taskRunService,
-		taskStepService:     taskStepService,
-		taskArtifactService: taskstate.NewTaskArtifactService(),
+		iterationCostObserver: NewIterationCostObserver(),
+		taskRunService:        taskRunService,
+		taskStepService:       taskStepService,
+		taskArtifactService:   taskstate.NewTaskArtifactService(),
 	}
 }
 
@@ -400,6 +400,7 @@ func (agentKernel *AgentKernel) RunAgentRequest(responseContext context.Context,
 		agentKernel.languageModel,
 		turnOptions,
 	)
+	agentTurnRunner.UseIterationCostObserver(agentKernel.iterationCostObserver)
 	result, errorValue := agentTurnRunner.RunTurn(taskBudget.callerContext(), turnRequest)
 	result.TurnRoute = turnDecision.Route
 	result.ToolNames = toolNamesForEvent(turnRequest.ToolSet)
@@ -654,7 +655,6 @@ func (agentKernel *AgentKernel) taskRunForRequest(request AgentRequest) taskstat
 func (agentKernel *AgentKernel) appendTurnRouterCallRecords(taskRunID string, records []llmCallRecord) {
 	for _, record := range records {
 		agentKernel.taskRunService.AppendTaskEvent(taskRunID, "llm.call", marshalEventBody(record))
-		agentKernel.observeModelThroughput(record)
 	}
 }
 
@@ -834,15 +834,11 @@ func (agentKernel *AgentKernel) turnOptionsForIntakeDecision(intakeDecision Inta
 	baseOptions.TaskLevel = taskLevelProfile.TaskLevel
 	baseOptions.MaxIterationCount = taskLevelProfile.MaxIterationCount
 	baseOptions.MaxToolCallCount = taskLevelProfile.MaxToolCallCount
-	baseOptions.MaxElapsedSecond = int(elapsedBudgetForProfile(taskLevelProfile, agentKernel.throughputObserver.ThroughputOfModelInUse()).Seconds())
+	baseOptions.MaxElapsedSecond = int(elapsedBudgetForProfile(taskLevelProfile, agentKernel.iterationCostObserver.CostOfModelInUse()).Seconds())
 	return baseOptions
 }
 
-func (agentKernel *AgentKernel) observeModelThroughput(record llmCallRecord) {
-	agentKernel.throughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
-}
-
-func elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile, throughput ModelThroughput) time.Duration {
+func elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile, throughput IterationCost) time.Duration {
 	return DurationForIterationCount(taskLevelProfile.MaxIterationCount, throughput, taskLevelProfile.CostCeiling)
 }
 

@@ -148,8 +148,8 @@ func TestAgentKernelSelectsSkillForTypedToolContract(t *testing.T) {
 		Prompt:         "Use task.add.",
 		ToolReferences: []string{"task_add"},
 	}}}, request, IntakeDecision{
-		Classification:   IntakeClassificationBoundedTask,
-		TaskLevel:        TaskLevelLow,
+		Classification: IntakeClassificationBoundedTask,
+		TaskLevel:      TaskLevelLow,
 	})
 
 	if bundle.RetrievalMode == "tool_contract" || bundle.IndexStatus == "bypassed" {

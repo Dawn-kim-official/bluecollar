@@ -40,7 +40,7 @@ func profileForTier(taskLevel TaskLevel, doublings int) TaskLevelProfile {
 	return TaskLevelProfile{
 		TaskLevel:         taskLevel,
 		CostCeiling:       costCeilingForDoublings(doublings),
-		Duration:          DurationForIterationCount(iterationCount, ModelThroughput{}, costCeilingForDoublings(doublings)),
+		Duration:          DurationForIterationCount(iterationCount, IterationCost{}, costCeilingForDoublings(doublings)),
 		MaxIterationCount: iterationCount,
 		MaxToolCallCount:  escalatedFrom(measuredSuccessfulToolCallPercentile95, doublings),
 	}
@@ -50,7 +50,7 @@ var taskLevelProfiles = []TaskLevelProfile{
 	{
 		TaskLevel:         TaskLevelXLow,
 		CostCeiling:       answerWithoutToolsCostCeiling,
-		Duration:          DurationForIterationCount(answerWithoutToolsIterationCount, ModelThroughput{}, answerWithoutToolsCostCeiling),
+		Duration:          DurationForIterationCount(answerWithoutToolsIterationCount, IterationCost{}, answerWithoutToolsCostCeiling),
 		MaxIterationCount: answerWithoutToolsIterationCount,
 		MaxToolCallCount:  answerWithoutToolsToolCallCount,
 	},
