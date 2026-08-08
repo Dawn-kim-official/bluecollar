@@ -288,7 +288,7 @@ rate.
 
 ## What has not worked
 
-Two changes were made, measured, and judged by the measurement rather than by
+Three changes were made, measured, and judged by the measurement rather than by
 the reasoning behind them.
 
 Restoring the contract's file requirement wherever a write tool existed took
@@ -302,6 +302,23 @@ verify anything: `terminal_run` was still called about once per task, the
 tests sitting in the container were never run, and the agent read files 210
 times across six tasks instead. Whatever makes an agent check its work, a
 sentence in the system instruction is not it.
+
+Letting one response carry several tool calls was aimed at the round trip
+between them, which is where most of a task's wall clock goes. The mechanism
+works — the ledger shows an action running with no `llm.call` before it, which
+had never happened — but it fired twice in 125 actions, and the second of
+those two came only after the instruction stopped merely permitting batches
+and started naming the cases worth batching. It is not what makes these runs
+slow. Terminal work is sequential by nature: you cannot run the tests before
+the edit, or read the file before the listing that names it. The round trip is
+real and it is most of the clock, but on this dataset there is almost nothing
+independent sitting on either side of it to collapse.
+
+The change stayed in. It is correct, it costs nothing when no batch is
+offered, and a dataset whose work is genuinely independent is where it would
+show. This dataset is not that, and the pass rate moving from four to three
+across those runs belongs to `grid-pattern-transform`, which batched nothing
+and has been flaky for this model all along.
 
 ## Open
 
