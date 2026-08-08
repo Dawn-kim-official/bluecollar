@@ -227,7 +227,7 @@ func modelVisibleToolResultSummary(ctx context.Context, languageModel model.Lang
 
 func shouldUseSanitizedToolPresenter(toolName string) bool {
 	switch strings.TrimSpace(toolName) {
-	case "browser_snapshot", "browser.observe", "browser_screenshot", "file_pick", toolcontract.FileDeliverToolName, "file_read", "site_serve", "site_list", "terminal_run":
+	case "browser_snapshot", "browser.observe", "browser_screenshot", "file_pick", toolcontract.FileDeliverToolName, "file_read", "site_serve", "site_list":
 		return true
 	default:
 		return false
@@ -262,11 +262,6 @@ func sanitizedToolResultSummary(observation turnObservation) string {
 		return summarizeSafeJSONFields(observation.ContentText(), []string{"siteID", "slug", "mode", "previewURL", "publishedURL", "sourceSHA256"})
 	case "site_list":
 		return summarizeSafeJSONFields(observation.ContentText(), []string{"sites", "siteID", "slug", "title", "status", "publishedURL", "updatedAt"})
-	case "terminal_run":
-		if summary := summarizeTerminalFailure(observation); summary != "" {
-			return summary
-		}
-		return summarizeSafeJSONFields(observation.ContentText(), []string{"exitCode", "timedOut"})
 	default:
 		return summarizeObservationContent(observation)
 	}

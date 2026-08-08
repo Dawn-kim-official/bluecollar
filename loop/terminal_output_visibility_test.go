@@ -1,6 +1,7 @@
 package loop
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -37,5 +38,22 @@ func TestATerminalSummaryKeepsTheOutputItCanRead(t *testing.T) {
 
 	if !strings.Contains(summary, "search_contacts") {
 		t.Fatalf("a host that does report stdout must keep its tail in the summary, got %q", summary)
+	}
+}
+
+func TestTheModelSeesWhatATerminalCommandPrinted(t *testing.T) {
+	printed := "Usage: cli phone [OPTIONS]\nCommands:\n  login\n  search_contacts\n  send_text_message\n"
+	observation := turnObservation{
+		Tool: "terminal_run",
+		Output: toolcontract.ToolOutput{
+			Content: printed,
+			Data:    []byte(`{"exitCode":0,"output":"Usage: cli phone [OPTIONS]","truncated":false,"completed":true}`),
+		},
+	}
+
+	summary := modelVisibleToolResultSummary(context.Background(), nil, "terminal_run", observation)
+
+	if !strings.Contains(summary, "search_contacts") {
+		t.Fatalf("the agent runs commands to read their output; it was handed %q instead", summary)
 	}
 }
