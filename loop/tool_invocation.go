@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/yeomyeonggeori/bluecollar/toolcontract"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,7 +99,7 @@ func (agentTurnRunner *AgentTurnRunner) saveToolObservation(ctx context.Context,
 	if len(content) > agentTurnRunner.options.ToolResultMaxBytes {
 		taskArtifact := agentTurnRunner.taskArtifactService.AddTaskArtifactBody(taskRunID, "tool."+toolName+".result", content)
 		artifactID = taskArtifact.TaskArtifactID
-		content = content[:agentTurnRunner.options.ToolResultMaxBytes] + "\n[truncated; full result saved as artifact " + taskArtifact.TaskArtifactID + "]"
+		content = withMiddleElided(content, agentTurnRunner.options.ToolResultMaxBytes)
 	}
 	attachments := []toolcontract.FileAttachment{}
 	if !isError {
@@ -191,7 +192,7 @@ func (agentTurnRunner *AgentTurnRunner) buildToolResultSummary(ctx context.Conte
 	}
 	summary := modelVisibleToolResultSummary(ctx, agentTurnRunner.languageModel, toolName, observation)
 	if strings.TrimSpace(artifactID) != "" {
-		summary = strings.TrimSpace(summary) + " Full result stored as artifact " + strings.TrimSpace(artifactID) + "."
+		summary = strings.TrimSpace(summary) + " " + narrowTheOutputAdvice
 	}
 	return strings.TrimSpace(summary)
 }
@@ -327,3 +328,18 @@ func toolResultImageRefs(observationID string, attachments []toolcontract.FileAt
 func isApprovalRequiredObservation(observation turnObservation) bool {
 	return observation.Failed() && observation.Failure.RequiresApproval
 }
+
+func withMiddleElided(content string, limit int) string {
+	if limit <= 0 || len(content) <= limit {
+		return content
+	}
+	headLength := limit / 2
+	head := strings.ToValidUTF8(content[:headLength], "")
+	tail := strings.ToValidUTF8(content[len(content)-(limit-headLength):], "")
+	elided := len(content) - len(head) - len(tail)
+	return head +
+		"\n[" + strconv.Itoa(elided) + " characters elided from the middle of this output]\n" +
+		tail
+}
+
+const narrowTheOutputAdvice = "The middle was elided. Ask again for just the part you need — a narrower command, a line range — rather than reading it whole."
