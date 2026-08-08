@@ -172,8 +172,11 @@ func TestDecideAgentActionNativeChatRejectsInvalidCallsWithoutStructuredFallback
 			if errorValue == nil {
 				t.Fatal("expected native action error")
 			}
-			if provider.chatCalls != 1 || provider.structuredCalls != 0 {
-				t.Fatalf("expected direct native failure without structured fallback, got chat=%d structured=%d", provider.chatCalls, provider.structuredCalls)
+			if provider.structuredCalls != 0 {
+				t.Fatalf("a native call the model got wrong is corrected on the native path, never by falling back to the structured one, got structured=%d", provider.structuredCalls)
+			}
+			if provider.chatCalls < 1 || provider.chatCalls > maximumAgentActionCorrectionCount+1 {
+				t.Fatalf("a malformed call is worth telling the model about and asking again, within the correction budget, got chat=%d", provider.chatCalls)
 			}
 		})
 	}

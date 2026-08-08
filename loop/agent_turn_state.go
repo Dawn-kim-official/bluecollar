@@ -731,24 +731,37 @@ func decideAgentActionWithChat(ctx context.Context, chatCompleter model.ChatComp
 	for correctionCount := 0; ; correctionCount++ {
 		response, errorValue := chatCompleter.GenerateChatCompletion(ctx, currentRequest)
 		if errorValue == nil {
-			return parseNativeAgentActionResponse(response, currentRequest.Tools)
+			action, parseError := parseNativeAgentActionResponse(response, currentRequest.Tools)
+			if parseError == nil {
+				return action, nil
+			}
+			retryRequest, canRetry := correctedAgentActionRequest(currentRequest, nativeActionParseCorrection(parseError), state, correctionCount)
+			if !canRetry {
+				return turnActionDocument{}, parseError
+			}
+			currentRequest = retryRequest
+			continue
 		}
 		if errors.Is(errorValue, context.Canceled) || errors.Is(errorValue, context.DeadlineExceeded) || ctx.Err() != nil {
-			return turnActionDocument{}, errorValue
-		}
-		if correctionCount >= maximumAgentActionCorrectionCount {
 			return turnActionDocument{}, errorValue
 		}
 		correction, isCorrectable := model.StructuredOutputCorrectionFromError(errorValue)
 		if !isCorrectable {
 			return turnActionDocument{}, errorValue
 		}
-		retryRequest, canRetry := retryAgentActionChatCompletionRequest(currentRequest, correction, state)
+		retryRequest, canRetry := correctedAgentActionRequest(currentRequest, correction, state, correctionCount)
 		if !canRetry {
 			return turnActionDocument{}, errorValue
 		}
 		currentRequest = retryRequest
 	}
+}
+
+func correctedAgentActionRequest(request model.ChatCompletionRequest, correction model.StructuredOutputCorrection, state agentTaskState, correctionCount int) (model.ChatCompletionRequest, bool) {
+	if correctionCount >= maximumAgentActionCorrectionCount {
+		return model.ChatCompletionRequest{}, false
+	}
+	return retryAgentActionChatCompletionRequest(request, correction, state)
 }
 
 func retryAgentActionChatCompletionRequest(request model.ChatCompletionRequest, correction model.StructuredOutputCorrection, state agentTaskState) (model.ChatCompletionRequest, bool) {
@@ -851,6 +864,15 @@ func agentActionCompletionIsBlocked(state agentTaskState) bool {
 	}
 	_, hasFailureDebt := activeFailureDebt(state.Observations)
 	return hasFailureDebt
+}
+
+func nativeActionParseCorrection(parseError error) model.StructuredOutputCorrection {
+	return model.StructuredOutputCorrection{
+		Diagnostic: model.StructuredOutputDiagnostic{
+			Category:         model.StructuredOutputDiagnosticSchemaValidation,
+			ValidationIssues: []model.StructuredOutputValidationIssue{{FieldPath: parseError.Error()}},
+		},
+	}
 }
 
 func agentActionCorrectionMessage(correction model.StructuredOutputCorrection) string {
