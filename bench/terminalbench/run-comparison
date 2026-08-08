@@ -58,6 +58,7 @@ removeAbandonedTaskContainers() {
   if [ -z "$abandoned" ]; then return 0; fi
   echo "removing $(printf '%s\n' "$abandoned" | wc -l | tr -d ' ') task containers a previous run left behind" >&2
   printf '%s\n' "$abandoned" | xargs docker rm -f > /dev/null
+  docker network prune -f > /dev/null
 }
 
 refuseUnknownModel
