@@ -159,7 +159,6 @@ type AgentTurnRequest struct {
 	AmbientDuty                  AmbientDutyContext
 	TaskShape                    TaskShape
 	TaskLevel                    TaskLevel
-	EstimatedMinutes             int
 	TurnStartedAt                time.Time
 	EffortStartedAt              time.Time
 	TurnAnchorClamped            bool

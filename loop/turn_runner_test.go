@@ -368,7 +368,6 @@ func TestAgentTurnRunnerSuppressesCheckpointForSimpleTask(t *testing.T) {
 		ToolSet:           toolRegistry,
 		PinnedToolNames:   toolRegistry.ListToolNames(),
 		TaskLevel:         TaskLevelXLow,
-		EstimatedMinutes:  1,
 		CheckpointSender: func(_ context.Context, checkpoint AgentCheckpoint) error {
 			checkpoints = append(checkpoints, checkpoint)
 			return nil
@@ -986,7 +985,6 @@ func TestAgentTurnRunnerCompletesBrowserOpenWithPostEvidenceReply(t *testing.T) 
 		ConversationID:        "conversation-1",
 		Prompt:                "브라우저 열어줘.",
 		TaskLevel:             TaskLevelXLow,
-		EstimatedMinutes:      1,
 		TaskShape:             TaskShapeBrowserHandoffTask,
 		ToolSet:               toolRegistry,
 		PinnedToolNames:       toolRegistry.ListToolNames(),
