@@ -155,6 +155,7 @@ func buildWorkspaceContextDescription(request AgentTurnRequest) string {
 		return ""
 	}
 	lines := []string{
+		"Your shell starts in " + strings.TrimSpace(request.WorkspaceDefaultPath) + " and stays there between commands. You do not need to discover where you are.",
 		"Terminal commands run as the requester POSIX identity; ~ is your Linux home ($HOME) and your private workspace, and the same ~ path works in a tool path field and in a shell command.",
 		"A concrete POSIX path under your home also resolves, so open one you see in ls output instead of giving up.",
 		"If unsure, inspect access from a working directory such as ~: id; pwd; ls -ld .; stat -c '%A %U %G %n' .; test -w .",

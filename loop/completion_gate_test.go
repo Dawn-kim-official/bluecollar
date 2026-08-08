@@ -2173,3 +2173,66 @@ func TestFinishHiddenAfterAttachmentRejectionDespiteToolEvidence(t *testing.T) {
 		t.Fatalf("expected finish hidden after attachment rejection even with prior tool evidence")
 	}
 }
+
+func TestAContractCannotRequireAToolThePaletteCannotCall(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+	contract := OutcomeContract{
+		ArtifactRequirement:        ArtifactRequirementRequired,
+		RequiredAttachmentSuffixes: []string{".txt"},
+		RequiredEvidenceTools:      []string{toolcontract.FileDeliverToolName},
+	}
+
+	result := validateOutcomeContractRequirements(contractReducedToCallableTools(toolSet, contract), nil, nil)
+
+	if !result.IsSatisfied {
+		t.Fatalf("a task holding only a terminal can never deliver a file, so the gate would ask for it every turn until the run dies: %+v", result)
+	}
+}
+
+func TestAContractStillRequiresAToolThePaletteDoesCall(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName, toolcontract.FileDeliverToolName})
+	contract := OutcomeContract{RequiredEvidenceTools: []string{toolcontract.FileDeliverToolName}}
+
+	result := validateOutcomeContractRequirements(contractReducedToCallableTools(toolSet, contract), nil, nil)
+
+	if result.IsSatisfied {
+		t.Fatal("expected the gate to keep asking for evidence from a tool the task can actually call")
+	}
+}
+
+func TestARequiredFileResultIsNotRequiredWhenNothingCanDeliverIt(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+	contract := OutcomeContract{ExpectedResults: []ExpectedResult{{Type: ExpectedResultTypeFile, Required: true}}}
+
+	reduced := contractReducedToCallableTools(toolSet, contract)
+
+	if expectedResultRequiresFileAttachment(reduced) {
+		t.Fatal("a required file on a task that holds only a terminal is a demand no turn can meet, and the run spends every remaining turn on it")
+	}
+}
+
+func TestEveryCopyOfTheContractIsReducedToWhatTheTaskCanCall(t *testing.T) {
+	toolSet := newTestToolSet([]string{toolcontract.TerminalRunToolName})
+	undeliverable := OutcomeContract{
+		RequiredEvidenceTools:      []string{toolcontract.FileDeliverToolName},
+		RequiredAttachmentSuffixes: []string{".txt"},
+		ExpectedResults:            []ExpectedResult{{Type: ExpectedResultTypeFile, Required: true}},
+	}
+	request := AgentTurnRequest{
+		ToolSet:               toolSet,
+		OutcomeContract:       undeliverable,
+		ActiveGoal:            ActiveGoal{OutcomeContract: undeliverable},
+		RequiredEvidenceTools: []string{toolcontract.FileDeliverToolName},
+	}
+
+	request.OutcomeContract = contractReducedToCallableTools(request.ToolSet, request.OutcomeContract)
+	request.ActiveGoal.OutcomeContract = contractReducedToCallableTools(request.ToolSet, request.ActiveGoal.OutcomeContract)
+	request.RequiredEvidenceTools = callableToolNames(request.ToolSet, request.RequiredEvidenceTools)
+
+	if expectedResultRequiresFileAttachment(request.ActiveGoal.OutcomeContract) {
+		t.Fatal("the goal carries its own copy of the contract, and reducing only the request's copy left the demand alive where the gates actually read it")
+	}
+	if len(request.RequiredEvidenceTools) != 0 {
+		t.Fatalf("the request carries a third copy as a flat list, got %v", request.RequiredEvidenceTools)
+	}
+}
