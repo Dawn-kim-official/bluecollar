@@ -9,6 +9,7 @@ var _ agentcontract.Harness = (*AgentKernel)(nil)
 
 type (
 	ThroughputObserver                      = agentcontract.ThroughputObserver
+	ModelThroughput                         = agentcontract.ModelThroughput
 	AgentIdentity                           = agentcontract.AgentIdentity
 	ActiveGoal                              = agentcontract.ActiveGoal
 	ActiveGoalStatus                        = agentcontract.ActiveGoalStatus

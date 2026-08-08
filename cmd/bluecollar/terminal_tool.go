@@ -130,6 +130,7 @@ func newWorkspaceToolSet(runningShell shell) *toolcontract.ToolSet {
 		Result: toolcontract.IdentityToolResult,
 	})
 	registerFileTools(toolSet, runningShell)
+	registerPlanTool(toolSet)
 	return toolSet
 }
 

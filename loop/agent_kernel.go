@@ -834,7 +834,7 @@ func (agentKernel *AgentKernel) turnOptionsForIntakeDecision(intakeDecision Inta
 	baseOptions.TaskLevel = taskLevelProfile.TaskLevel
 	baseOptions.MaxIterationCount = taskLevelProfile.MaxIterationCount
 	baseOptions.MaxToolCallCount = taskLevelProfile.MaxToolCallCount
-	baseOptions.MaxElapsedSecond = int(agentKernel.elapsedBudgetForProfile(taskLevelProfile).Seconds())
+	baseOptions.MaxElapsedSecond = int(elapsedBudgetForProfile(taskLevelProfile, agentKernel.throughputObserver.ThroughputOfModelInUse()).Seconds())
 	return baseOptions
 }
 
@@ -842,8 +842,8 @@ func (agentKernel *AgentKernel) observeModelThroughput(record llmCallRecord) {
 	agentKernel.throughputObserver.Record(record.Model, time.Duration(record.LatencyMS)*time.Millisecond, record.CompletionTokens)
 }
 
-func (agentKernel *AgentKernel) elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile) time.Duration {
-	return DurationForIterationCount(taskLevelProfile.MaxIterationCount, agentKernel.throughputObserver.ThroughputOfModelInUse(), taskLevelProfile.CostCeiling)
+func elapsedBudgetForProfile(taskLevelProfile TaskLevelProfile, throughput ModelThroughput) time.Duration {
+	return DurationForIterationCount(taskLevelProfile.MaxIterationCount, throughput, taskLevelProfile.CostCeiling)
 }
 
 func artifactTaskLevelFloor(request AgentRequest, intakeDecision IntakeDecision) TaskLevel {

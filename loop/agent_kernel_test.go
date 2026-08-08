@@ -655,7 +655,7 @@ func TestAgentKernelSkillDeadlinePersistsOneBlockedTask(t *testing.T) {
 	agentKernel.UseIntakeLanguageModelProvider(languageModel)
 	agentKernel.UseLanguageModelProvider(languageModel)
 	request := kernelTestRequest("고객지원 업무를 정리해줘")
-	workDuration := workDurationWithinTotal(agentKernel.elapsedBudgetForProfile(TaskLevelProfileForLevel(TaskLevelXLow)))
+	workDuration := workDurationWithinTotal(elapsedBudgetForProfile(TaskLevelProfileForLevel(TaskLevelXLow), agentKernel.throughputObserver.ThroughputOfModelInUse()))
 	request.TurnStartedAt = time.Now().Add(-workDuration + time.Second)
 
 	result, errorValue := agentKernel.RunAgentRequest(context.Background(), routedRequest(t, context.Background(), agentKernel, request))
