@@ -134,8 +134,25 @@ in twenty minutes.
 BENCH_DATASET=appworld-dev bench/terminalbench/run-comparison 0d8a4ee_1
 ```
 
-AppWorld's own verification returned 500 on some tasks for both harnesses, so
-treat unscored rows there as infrastructure, not results.
+A `Failed to activate server: 500` from the verification step is not an
+infrastructure row, and reading it as one costs a whole run. The full dev set
+returned that 500 on 52 of 57 tasks and scored bluecollar 0, which looked like
+a broken benchmark until pi ran the same task and passed it. AppWorld's server
+answers `/evaluate` with a 500 when the task was never completed on it, so the
+500 *is* the failure, reported one layer away from where it happened.
+
+What the run found, on `0d8a4ee_1`: the agent spent all 26 of its tool calls
+re-reading help. `cli phone --help` returned `login`, `search_contacts` and
+`send_text_message` — everything the task needed — and it returned that at
+least eight times. The agent never called one of them. The command string was
+different every time (`2>&1 | cat`, `sed -n '1,240p'`, `set -o pipefail`), so
+nothing that compares commands would call this a repeat; the *output* was
+byte-identical.
+
+The runtime did notice something was wrong and said the wrong thing about it.
+It raised limit pressure twice and ended on an exhausted budget, which tells an
+agent it is running out of room, not that it has already been told this answer
+eight times.
 
 ## Where the budgets come from
 
