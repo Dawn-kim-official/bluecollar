@@ -41,6 +41,7 @@ type ProgressObservation struct {
 	AttemptFingerprint string               `json:"attemptFingerprint,omitempty"`
 	RecoveryStep       string               `json:"recoveryStep,omitempty"`
 	RepeatCount        int                  `json:"repeatCount,omitempty"`
+	SameOutputAs       string               `json:"sameOutputAs,omitempty"`
 }
 
 type ProgressFailureDebt struct {
@@ -210,6 +211,7 @@ func summarizeObservation(observation turnObservation) ProgressObservation {
 		ImageRefs:          append([]ToolResultImageRef{}, observation.ImageRefs...),
 		AttemptFingerprint: strings.TrimSpace(observation.AttemptFingerprint),
 		RecoveryStep:       strings.TrimSpace(observation.RecoveryStep),
+		SameOutputAs:       strings.TrimSpace(observation.RepeatsObservationID),
 	}
 }
 

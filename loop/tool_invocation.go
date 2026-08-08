@@ -11,12 +11,26 @@ import (
 	"github.com/yeomyeonggeori/bluecollar/model"
 )
 
+func earlierObservationWithIdenticalOutput(observations []turnObservation, observation turnObservation) string {
+	content := observation.ContentText()
+	if strings.TrimSpace(content) == "" {
+		return ""
+	}
+	for _, earlier := range observations {
+		if earlier.ContentText() == content {
+			return earlier.ObservationID
+		}
+	}
+	return ""
+}
+
 func (agentTurnRunner *AgentTurnRunner) recordToolObservation(taskRunID string, state *agentTaskState, actionDocument turnActionDocument, successfulToolCalls map[string]turnObservation, observation turnObservation, recoveryStep string) {
 	if recoveryStep != "" {
 		observation.RecoveryStep = recoveryStep
 		observation.RecoveryAttemptSpent = recoveryStep != recoveryStepInspection
 		observation.RecoveryAttemptKey = canonicalToolCallKey(actionDocument.ToolName, actionDocument.ToolInput)
 	}
+	observation.RepeatsObservationID = earlierObservationWithIdenticalOutput(state.Observations, observation)
 	state.Observations = append(state.Observations, observation)
 	state.Attachments = appendObservationAttachments(state.Attachments, observation)
 	if observation.Failed() {

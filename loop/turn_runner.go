@@ -87,6 +87,7 @@ type turnObservation struct {
 	Failure              *toolcontract.ToolFailure     `json:"failure,omitempty"`
 	Summary              string                        `json:"summary,omitempty"`
 	ImageRefs            []ToolResultImageRef          `json:"imageRefs,omitempty"`
+	RepeatsObservationID string                        `json:"repeatsObservationID,omitempty"`
 	ToolInputKey         string                        `json:"toolInputKey,omitempty"`
 	AttemptFingerprint   string                        `json:"attemptFingerprint,omitempty"`
 	RecoveryAttemptKey   string                        `json:"recoveryAttemptKey,omitempty"`
