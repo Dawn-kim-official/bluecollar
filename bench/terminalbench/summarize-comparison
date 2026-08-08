@@ -77,6 +77,7 @@ def harness_row(harness_name, harness_root):
         "resolved": resolved,
         "reachedEnd": f"{len(reached_end)}/{len(metrics)}" if metrics else "not reported",
         "turns": formatted(median_of(metrics, "turns")),
+        "languageModelCalls": formatted(median_of(metrics, "languageModelCalls")),
         "promptTokensPerTurn": formatted(median_of(metrics, "promptTokensPerTurn")),
         "wallClockSecond": median_agent_second(verdicts),
     }
@@ -89,11 +90,11 @@ def main():
         print("no runs to summarise")
         return
     print(f"\n== {dataset} with {model} ==")
-    print("| harness | tasks | resolved | reached end | median turns | median prompt tokens/turn | median wall clock |")
-    print("|---|---|---|---|---|---|---|")
+    print("| harness | tasks | resolved | reached end | median turns | median model calls | median prompt tokens/turn | median wall clock |")
+    print("|---|---|---|---|---|---|---|---|")
     for row in rows:
         print(f"| {row['harness']} | {row['tasks']} | {row['resolved']} | {row['reachedEnd']} | "
-              f"{row['turns']} | {row['promptTokensPerTurn']} | {row['wallClockSecond']} |")
+              f"{row['turns']} | {row['languageModelCalls']} | {row['promptTokensPerTurn']} | {row['wallClockSecond']} |")
 
 
 main()
